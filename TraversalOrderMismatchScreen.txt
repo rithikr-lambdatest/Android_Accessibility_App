@@ -1,0 +1,250 @@
+package com.example.qa_accessibility_app
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.traversalIndex
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+
+@Composable
+fun TraversalOrderMismatchScreen(modifier: Modifier = Modifier) {
+    val scrollState = rememberScrollState()
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Traversal Order Mismatch (WCAG 2.4.3)",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                // Violation 1: Compose traversalIndex — chain != visual order.
+                Text(
+                    text = "Violation: traversalIndex reorders TalkBack as Beta -> Gamma -> Alpha while visual order is Alpha, Beta, Gamma.",
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics { isTraversalGroup = true },
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {},
+                        modifier = Modifier
+                            .weight(1f)
+                            .semantics { traversalIndex = 3f }
+                    ) { Text("Alpha") }
+                    Button(
+                        onClick = {},
+                        modifier = Modifier
+                            .weight(1f)
+                            .semantics { traversalIndex = 1f }
+                    ) { Text("Beta") }
+                    Button(
+                        onClick = {},
+                        modifier = Modifier
+                            .weight(1f)
+                            .semantics { traversalIndex = 2f }
+                    ) { Text("Gamma") }
+                }
+                Spacer(Modifier.height(16.dp))
+
+                // Violation 2: Compose vertical column with reversed traversal.
+                Text(
+                    text = "Violation: vertical column with reversed traversal — TalkBack reads bottom row first.",
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.semantics { isTraversalGroup = true }
+                ) {
+                    Text(
+                        "Top row (read last)",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.secondaryContainer)
+                            .padding(8.dp)
+                            .semantics { traversalIndex = 3f }
+                    )
+                    Text(
+                        "Middle row",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.secondaryContainer)
+                            .padding(8.dp)
+                            .semantics { traversalIndex = 2f }
+                    )
+                    Text(
+                        "Bottom row (read first)",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.secondaryContainer)
+                            .padding(8.dp)
+                            .semantics { traversalIndex = 1f }
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+
+                // Violation 3: Native accessibilityTraversalBefore — chain != visual order.
+                Text(
+                    text = "Violation (XML / native View): accessibilityTraversalBefore reorders three native Buttons — visual Alpha, Beta, Gamma; reading Beta -> Gamma -> Alpha.",
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth(),
+                    factory = { ctx ->
+                        android.widget.LinearLayout(ctx).apply {
+                            orientation = android.widget.LinearLayout.HORIZONTAL
+                            layoutParams = android.view.ViewGroup.LayoutParams(
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                            )
+                            val alphaId = android.view.View.generateViewId()
+                            val betaId = android.view.View.generateViewId()
+                            val gammaId = android.view.View.generateViewId()
+                            val weightedParams = android.widget.LinearLayout.LayoutParams(
+                                0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f
+                            )
+                            val alpha = android.widget.Button(ctx).apply {
+                                id = alphaId; text = "Alpha"; layoutParams = weightedParams
+                            }
+                            val beta = android.widget.Button(ctx).apply {
+                                id = betaId; text = "Beta"; layoutParams = weightedParams
+                            }
+                            val gamma = android.widget.Button(ctx).apply {
+                                id = gammaId; text = "Gamma"; layoutParams = weightedParams
+                            }
+                            beta.accessibilityTraversalBefore = gammaId
+                            gamma.accessibilityTraversalBefore = alphaId
+                            addView(alpha); addView(beta); addView(gamma)
+                        }
+                    }
+                )
+                Spacer(Modifier.height(16.dp))
+
+                // Violation 4: Native A <-> B cycle.
+                Text(
+                    text = "Violation (XML / native View): A.traversalBefore=B and B.traversalBefore=A — cycle traps TalkBack.",
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth(),
+                    factory = { ctx ->
+                        android.widget.LinearLayout(ctx).apply {
+                            orientation = android.widget.LinearLayout.HORIZONTAL
+                            layoutParams = android.view.ViewGroup.LayoutParams(
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                            )
+                            val aId = android.view.View.generateViewId()
+                            val bId = android.view.View.generateViewId()
+                            val a = android.widget.Button(ctx).apply {
+                                id = aId; text = "A"
+                                layoutParams = android.widget.LinearLayout.LayoutParams(
+                                    0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f
+                                )
+                            }
+                            val b = android.widget.Button(ctx).apply {
+                                id = bId; text = "B"
+                                layoutParams = android.widget.LinearLayout.LayoutParams(
+                                    0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f
+                                )
+                            }
+                            a.accessibilityTraversalBefore = bId
+                            b.accessibilityTraversalBefore = aId
+                            addView(a); addView(b)
+                        }
+                    }
+                )
+                Spacer(Modifier.height(16.dp))
+
+                // Fix 1: Compose — no traversalIndex.
+                Text(
+                    text = "Fix: Drop traversalIndex — TalkBack follows visual order.",
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(onClick = {}, modifier = Modifier.weight(1f)) { Text("Alpha") }
+                    Button(onClick = {}, modifier = Modifier.weight(1f)) { Text("Beta") }
+                    Button(onClick = {}, modifier = Modifier.weight(1f)) { Text("Gamma") }
+                }
+                Spacer(Modifier.height(8.dp))
+
+                // Fix 2: Native — no traversal overrides.
+                Text(
+                    text = "Fix (XML / native View): three native Buttons with no traversal overrides.",
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth(),
+                    factory = { ctx ->
+                        android.widget.LinearLayout(ctx).apply {
+                            orientation = android.widget.LinearLayout.HORIZONTAL
+                            layoutParams = android.view.ViewGroup.LayoutParams(
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                            )
+                            val weightedParams = android.widget.LinearLayout.LayoutParams(
+                                0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f
+                            )
+                            addView(android.widget.Button(ctx).apply {
+                                text = "Alpha"; layoutParams = weightedParams
+                            })
+                            addView(android.widget.Button(ctx).apply {
+                                text = "Beta"; layoutParams = weightedParams
+                            })
+                            addView(android.widget.Button(ctx).apply {
+                                text = "Gamma"; layoutParams = weightedParams
+                            })
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun TraversalOrderMismatchScreenPreview() {
+    TraversalOrderMismatchScreen()
+}
