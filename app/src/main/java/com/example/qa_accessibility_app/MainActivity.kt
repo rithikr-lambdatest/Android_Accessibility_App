@@ -71,12 +71,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.semantics.toggleableState
-import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
@@ -2077,73 +2075,10 @@ fun TraversalOrderMismatchScreen(modifier: Modifier = Modifier) {
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
                 Text(
-                    text = "Violation: traversalIndex reorders TalkBack as Beta → Gamma → Alpha while visual order is Alpha, Beta, Gamma.",
+                    text = "Note: The rule only evaluates native Views (XML or AndroidView subtrees) plus cycles. Pure-Compose traversalIndex / isTraversalGroup reorders are silenced because Compose auto-stamps traversal edges, so developer intent can't be separated from framework bookkeeping.",
                     fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 4.dp)
+                    modifier = Modifier.padding(bottom = 12.dp)
                 )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .semantics { isTraversalGroup = true },
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        onClick = { },
-                        modifier = Modifier
-                            .weight(1f)
-                            .semantics { traversalIndex = 3f }
-                    ) { Text("Alpha") }
-                    Button(
-                        onClick = { },
-                        modifier = Modifier
-                            .weight(1f)
-                            .semantics { traversalIndex = 1f }
-                    ) { Text("Beta") }
-                    Button(
-                        onClick = { },
-                        modifier = Modifier
-                            .weight(1f)
-                            .semantics { traversalIndex = 2f }
-                    ) { Text("Gamma") }
-                }
-
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    text = "Violation: vertical column with reversed traversal — TalkBack reads bottom row first.",
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.semantics { isTraversalGroup = true }
-                ) {
-                    Text(
-                        "Top row (read last)",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.secondaryContainer)
-                            .padding(8.dp)
-                            .semantics { traversalIndex = 3f }
-                    )
-                    Text(
-                        "Middle row",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.secondaryContainer)
-                            .padding(8.dp)
-                            .semantics { traversalIndex = 2f }
-                    )
-                    Text(
-                        "Bottom row (read first)",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.secondaryContainer)
-                            .padding(8.dp)
-                            .semantics { traversalIndex = 1f }
-                    )
-                }
-
-                Spacer(Modifier.height(16.dp))
                 Text(
                     text = "Violation (XML / native View): accessibilityTraversalBefore reorders three native Buttons — visual Alpha, Beta, Gamma; reading Beta → Gamma → Alpha.",
                     fontSize = 14.sp,
@@ -2228,21 +2163,6 @@ fun TraversalOrderMismatchScreen(modifier: Modifier = Modifier) {
                 )
 
                 Spacer(Modifier.height(16.dp))
-                Text(
-                    text = "Fix: Drop traversalIndex — TalkBack follows visual order.",
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(onClick = { }, modifier = Modifier.weight(1f)) { Text("Alpha") }
-                    Button(onClick = { }, modifier = Modifier.weight(1f)) { Text("Beta") }
-                    Button(onClick = { }, modifier = Modifier.weight(1f)) { Text("Gamma") }
-                }
-
-                Spacer(Modifier.height(8.dp))
                 Text(
                     text = "Fix (XML / native View): three native Buttons with no traversal overrides.",
                     fontSize = 14.sp,
