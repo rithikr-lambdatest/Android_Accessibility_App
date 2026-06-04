@@ -15,6 +15,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -41,12 +42,15 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,6 +64,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -67,6 +72,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -91,6 +97,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.qa_accessibility_app.R
 import com.example.qa_accessibility_app.ui.theme.QA_Accessibility_AppTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -221,6 +228,7 @@ fun QA_Accessibility_AppApp() {
                     AppDestinations.TRAVERSAL_ORDER_MISMATCH -> TraversalOrderMismatchScreen()
                     AppDestinations.DYNAMIC_TYPE_SUPPORT -> DynamicTypeSupportScreen()
                     AppDestinations.RESPONSIVE_CONTAINER -> ResponsiveContainerScreen()
+                    AppDestinations.IMAGE_IN_TEXT -> ImageInTextScreen()
                     null -> {}
                 }
             }
@@ -247,6 +255,7 @@ enum class AppDestinations(
     TRAVERSAL_ORDER_MISMATCH("Traversal Order Mismatch", Icons.Default.Build),
     DYNAMIC_TYPE_SUPPORT("Dynamic Type Support", Icons.Default.Build),
     RESPONSIVE_CONTAINER("Responsive Container", Icons.Default.Build),
+    IMAGE_IN_TEXT("Image in Text", Icons.Default.Build),
 }
 
 @Composable
@@ -2447,4 +2456,378 @@ fun ResponsiveContainerScreenPreview() {
     QA_Accessibility_AppTheme {
         ResponsiveContainerScreen()
     }
+}
+
+// =====================================================================
+// IMAGE-IN-TEXT (WCAG 1.4.5) — images of text + exception pass cases.
+// All images rendered via native ImageView (AndroidView) so they remain
+// in the XML/View tree and are scannable.
+// =====================================================================
+
+@Composable
+fun ImageInTextScreen(modifier: Modifier = Modifier) {
+    val scrollState = rememberScrollState()
+    Box(modifier = modifier.fillMaxSize()) {
+        ImageInTextContent(scrollState = scrollState)
+        // Floating up/down arrows to step-scroll the screen content
+        ScrollArrows(
+            scrollState = scrollState,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        )
+    }
+}
+
+@Composable
+private fun ImageInTextContent(
+    scrollState: ScrollState,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = "Images of Text — image-in-text",
+            style = MaterialTheme.typography.headlineSmall
+        )
+        Text(
+            text = "WCAG 1.4.5 (AA), Severity Serious. Fails when an image renders readable text in its pixels AND no exception applies. A contentDescription does NOT satisfy this rule — the violation is the embedding itself.",
+            style = MaterialTheme.typography.bodySmall
+        )
+
+        // ---------- VIOLATION CARDS ----------
+
+        // V-01 .. V-55: images of text — two images per row.
+        // Triple = (title, drawable, contentDescription)
+        val imageOfTextViolations: List<Triple<String, Int, String?>> = listOf(
+            // Images of text + contentDescription variants
+            Triple("V-01: No contentDescription", R.drawable.text_image_1, null),
+            Triple("V-02: Matching contentDescription", R.drawable.text_image_2, "Transparency"),
+            Triple("V-03: Mismatched contentDescription", R.drawable.text_image_4, "Watch on a strap"),
+            // Multilingual text-in-image samples
+            Triple("V-04: Arabic", R.drawable.arabic_text, null),
+            Triple("V-05: Argentina / Spanish", R.drawable.argentina_text, null),
+            Triple("V-06: Chinese (CJK)", R.drawable.chinese_text, null),
+            Triple("V-07: German", R.drawable.german_text, null),
+            Triple("V-08: Hindi (Devanagari)", R.drawable.hindi_text, null),
+            Triple("V-09: Hindi + English (mixed scripts)", R.drawable.hindi_english_text, null),
+            Triple("V-10: Japanese (CJK)", R.drawable.japanese_text, null),
+            Triple("V-11: Korean (CJK)", R.drawable.korean_text, null),
+            Triple("V-12: Polish", R.drawable.polish_text, null),
+            Triple("V-13: Russian (Cyrillic)", R.drawable.russian_text, null),
+            Triple("V-14: Spanish (Latin)", R.drawable.spanish_text, null),
+            Triple("V-15: Spanish (second sample)", R.drawable.spanish2_text, null),
+            Triple("V-16: Urdu (Arabic script)", R.drawable.urdu_text, null),
+            // Banner / CTA-style images of text
+            Triple("V-17: Sale Banner", R.drawable.sale_banner, null),
+            Triple("V-18: Buy Now Button", R.drawable.buy_now_button, null),
+            Triple("V-19: Welcome Hero", R.drawable.welcome_hero, null),
+            Triple("V-20: Price Tag", R.drawable.price_tag, null),
+            Triple("V-21: New Badge", R.drawable.new_badge, null),
+            Triple("V-22: Section Header", R.drawable.section_header, null),
+            Triple("V-23: Subscribe Cta", R.drawable.subscribe_cta, null),
+            Triple("V-24: Footer Text", R.drawable.footer_text, null),
+            Triple("V-25: Notification Banner", R.drawable.notification_banner, null),
+            Triple("V-26: Download Banner", R.drawable.download_banner, null),
+            Triple("V-27: Login Button", R.drawable.login_button, null),
+            Triple("V-28: Offer Card", R.drawable.offer_card, null),
+            Triple("V-29: Tab Label", R.drawable.tab_label, null),
+            Triple("V-30: Error Message", R.drawable.error_message, null),
+            Triple("V-31: Quote Card", R.drawable.quote_card, null),
+            Triple("V-32: Signup Button", R.drawable.signup_button, null),
+            Triple("V-33: Flash Deal", R.drawable.flash_deal, null),
+            Triple("V-34: Coupon Code", R.drawable.coupon_code, null),
+            Triple("V-35: Free Shipping", R.drawable.free_shipping, null),
+            Triple("V-36: Contact Us", R.drawable.contact_us, null),
+            Triple("V-37: Rate Us", R.drawable.rate_us, null),
+            Triple("V-38: Out Of Stock", R.drawable.out_of_stock, null),
+            Triple("V-39: Membership Banner", R.drawable.membership_banner, null),
+            Triple("V-40: Search Placeholder", R.drawable.search_placeholder, null),
+            Triple("V-41: Cashback Offer", R.drawable.cashback_offer, null),
+            Triple("V-42: Cookie Consent", R.drawable.cookie_consent, null),
+            Triple("V-43: Feature Highlight", R.drawable.feature_highlight, null),
+            Triple("V-44: Referral Banner", R.drawable.referral_banner, null),
+            Triple("V-45: Warranty Badge", R.drawable.warranty_badge, null),
+            Triple("V-46: Coming Soon", R.drawable.coming_soon, null),
+            // E-commerce product images with readable text in pixels
+            Triple("V-47: Product Packaging (Garbage Bags)", R.drawable.garbage_bags_pack, null),
+            Triple("V-48: Smartwatch Screen Text", R.drawable.smartwatch_face, null),
+            Triple("V-49: Game Box Packaging", R.drawable.sentence_search_game, null),
+            Triple("V-50: Book Cover — Indian Millennials", R.drawable.book_indian_millennials, null),
+            Triple("V-51: Book Cover — The Tubewell House", R.drawable.book_tubewell_house, null),
+            Triple("V-52: Book Cover — Ikigai", R.drawable.book_ikigai, null),
+            Triple("V-53: Book Cover — The Final Experiment", R.drawable.book_final_experiment, null),
+            Triple("V-54: Cleaner Bottle Label", R.drawable.surface_cleaner_can, null),
+            Triple("V-55: Product Infographic (Every Space)", R.drawable.every_space_infographic, null)
+        )
+        imageOfTextViolations.chunked(2).forEach { rowItems ->
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    rowItems.forEach { (title, resId, contentDesc) ->
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(title,
+                                style = MaterialTheme.typography.titleSmall)
+                            NativeImage(
+                                resId = resId,
+                                contentDescription = contentDesc,
+                                modifier = Modifier.fillMaxWidth().height(140.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // ---------- PASS CARDS ----------
+
+        // P-01: photograph without text
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("P-01: Photograph Without Rendered Text",
+                    style = MaterialTheme.typography.titleMedium)
+                NativeImage(
+                    resId = R.drawable.wooden_dice,
+                    contentDescription = "Four wooden dice on a dark surface",
+                    modifier = Modifier.fillMaxWidth().height(140.dp)
+                )
+            }
+        }
+
+        // P-02: brand logos / wordmarks
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("P-02: Brand Logos / Wordmarks (Exception)",
+                    style = MaterialTheme.typography.titleMedium)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    NativeImage(resId = R.drawable.chanel, contentDescription = null, modifier = Modifier.size(60.dp))
+                    NativeImage(resId = R.drawable.nike, contentDescription = null, modifier = Modifier.size(60.dp))
+                    NativeImage(resId = R.drawable.pepsi, contentDescription = null, modifier = Modifier.size(60.dp))
+                    NativeImage(resId = R.drawable.testmu, contentDescription = null, modifier = Modifier.size(60.dp))
+                }
+            }
+        }
+
+        // P-03: icon glyph exception
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("P-03: Icon Glyphs (Exception)",
+                    style = MaterialTheme.typography.titleMedium)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    NativeImage(resId = R.drawable.bin, contentDescription = null, modifier = Modifier.size(60.dp))
+                    NativeImage(resId = R.drawable.camera, contentDescription = null, modifier = Modifier.size(60.dp))
+                    NativeImage(resId = R.drawable.folder, contentDescription = null, modifier = Modifier.size(60.dp))
+                }
+            }
+        }
+
+        // P-04: plain shape — real Image assets
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("P-04: Plain Shape (Exception)",
+                    style = MaterialTheme.typography.titleMedium)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    NativeImage(resId = R.drawable.green_swatch, contentDescription = null, modifier = Modifier.weight(1f).height(60.dp))
+                    NativeImage(resId = R.drawable.purple_swatch, contentDescription = null, modifier = Modifier.weight(1f).height(60.dp))
+                    NativeImage(resId = R.drawable.yellow_swatch, contentDescription = null, modifier = Modifier.weight(1f).height(60.dp))
+                }
+            }
+        }
+
+        // P-05: image of text hidden — silently dropped
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("P-05: Image of Text — Hidden (Silently Dropped)",
+                    style = MaterialTheme.typography.titleMedium)
+                // Native ImageView so the View remains in the XML/View tree for scanning,
+                // but importantForAccessibility=NO marks it hidden -> rule silently drops it.
+                NativeImage(
+                    resId = R.drawable.learn_english,
+                    contentDescription = null,
+                    hiddenFromAccessibility = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                )
+            }
+        }
+
+        // P-06: chart / data viz exception
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("P-06: Chart / Data Visualisation (Exception)",
+                    style = MaterialTheme.typography.titleMedium)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        NativeImage(resId = R.drawable.bar_chart, contentDescription = null, modifier = Modifier.weight(1f).height(100.dp))
+                        NativeImage(resId = R.drawable.line_chart, contentDescription = null, modifier = Modifier.weight(1f).height(100.dp))
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        NativeImage(resId = R.drawable.pie_chart, contentDescription = null, modifier = Modifier.weight(1f).height(100.dp))
+                        NativeImage(resId = R.drawable.point_chart, contentDescription = null, modifier = Modifier.weight(1f).height(100.dp))
+                    }
+                }
+            }
+        }
+
+        // P-07: scanned document / receipt exception
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("P-07: Scanned Document / Receipt (Exception)",
+                    style = MaterialTheme.typography.titleMedium)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        NativeImage(resId = R.drawable.receipt_1, contentDescription = null, modifier = Modifier.weight(1f).height(140.dp))
+                        NativeImage(resId = R.drawable.receipt_2, contentDescription = null, modifier = Modifier.weight(1f).height(140.dp))
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        NativeImage(resId = R.drawable.scanned_doc, contentDescription = null, modifier = Modifier.weight(1f).height(140.dp))
+                        NativeImage(resId = R.drawable.scanned_doc_2, contentDescription = null, modifier = Modifier.weight(1f).height(140.dp))
+                    }
+                }
+            }
+        }
+
+        // P-08: decorative artwork with incidental text
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("P-08: Decorative Artwork with Incidental Text (Exception)",
+                    style = MaterialTheme.typography.titleMedium)
+                NativeImage(
+                    resId = R.drawable.decorative,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxWidth().height(280.dp)
+                )
+            }
+        }
+
+        // P-09 .. P-28: single full-width exception cards.
+        // Triple = (title, drawable, contentDescription)
+        val passCards: List<Triple<String, Int, String?>> = listOf(
+            Triple("P-09: Brand Logo (Brand Logo Exception)", R.drawable.brand_logo, null),
+            Triple("P-10: Gradient Bg (Plain Shape Exception)", R.drawable.gradient_bg, null),
+            Triple("P-11: Placeholder (Plain Shape Exception)", R.drawable.placeholder, null),
+            Triple("P-12: Wall Art (Decorative Artwork Exception)", R.drawable.wall_art, null),
+            Triple("P-13: Bar Chart (Chart / Data Viz Exception)", R.drawable.bar_chart_real, null),
+            Triple("P-14: Divider (Plain Shape Exception)", R.drawable.divider, null),
+            Triple("P-15: Typography Poster (Decorative Artwork Exception)", R.drawable.typography_poster, null),
+            Triple("P-16: Scanned Receipt (Scanned Document Exception)", R.drawable.scanned_receipt, null),
+            Triple("P-17: Product With Brand (Brand Logo Exception)", R.drawable.product_with_brand, null),
+            Triple("P-18: Pie Chart (Chart / Data Viz Exception)", R.drawable.pie_chart_real, null),
+            Triple("P-19: App Icon Logo (Brand Logo Exception)", R.drawable.app_icon_logo, null),
+            Triple("P-20: Love Sticker (Decorative Artwork Exception)", R.drawable.love_sticker, null),
+            Triple("P-21: Map Screenshot (Chart / Data Viz Exception)", R.drawable.map_screenshot, null),
+            Triple("P-22: Loading Skeleton (Plain Shape Exception)", R.drawable.loading_skeleton, null),
+            Triple("P-23: Greeting Card (Decorative Artwork Exception)", R.drawable.greeting_card, null),
+            // E-commerce pass cases (product photos / decorative artwork)
+            Triple("P-24: Watch Product Photo (Brand on Product Exception)", R.drawable.gshock_watch, null),
+            Triple("P-25: Brush Product Photo (Brand on Product Exception)", R.drawable.paddle_brush, null),
+            Triple("P-26: Mona Lisa Pop Art (Decorative Artwork Exception)", R.drawable.mona_lisa_art, null),
+            Triple("P-27: Framed Wall Art (Decorative Artwork Exception)", R.drawable.stay_positive_frame, null),
+            Triple("P-28: Showpiece (Decorative Artwork Exception)", R.drawable.yoga_se_hoga, null)
+        )
+        passCards.forEach { (title, resId, contentDesc) ->
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    NativeImage(
+                        resId = resId,
+                        contentDescription = contentDesc,
+                        modifier = Modifier.fillMaxWidth().height(140.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ImageInTextScreenPreview() {
+    QA_Accessibility_AppTheme {
+        ImageInTextScreen()
+    }
+}
+
+// Floating up/down arrow buttons that step-scroll a ScrollState-backed screen.
+@Composable
+private fun ScrollArrows(
+    scrollState: ScrollState,
+    modifier: Modifier = Modifier
+) {
+    val scope = rememberCoroutineScope()
+    // Scroll by roughly one screen-height per tap
+    val stepPx = with(LocalDensity.current) { 600.dp.roundToPx() }
+    // 56dp FABs (>= 48dp touch target) with 16dp spacing so adjacent
+    // targets don't trigger insufficient-target-spacing findings.
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        FloatingActionButton(
+            onClick = {
+                scope.launch {
+                    scrollState.animateScrollTo((scrollState.value - stepPx).coerceAtLeast(0))
+                }
+            }
+        ) {
+            Icon(imageVector = Icons.Default.KeyboardArrowUp, contentDescription = "Scroll up")
+        }
+        FloatingActionButton(
+            onClick = {
+                scope.launch {
+                    scrollState.animateScrollTo((scrollState.value + stepPx).coerceAtMost(scrollState.maxValue))
+                }
+            }
+        ) {
+            Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "Scroll down")
+        }
+    }
+}
+
+@Composable
+private fun NativeImage(
+    @androidx.annotation.DrawableRes resId: Int,
+    contentDescription: String? = null,
+    hiddenFromAccessibility: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    AndroidView(
+        factory = { ctx ->
+            android.widget.ImageView(ctx).apply {
+                adjustViewBounds = true
+                scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            }
+        },
+        update = { iv ->
+            iv.setImageResource(resId)
+            iv.contentDescription = contentDescription
+            iv.importantForAccessibility = if (hiddenFromAccessibility) {
+                android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            } else {
+                android.view.View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
+            }
+        },
+        modifier = modifier
+    )
 }
