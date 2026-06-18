@@ -255,7 +255,7 @@ enum class AppDestinations(
     TRAVERSAL_ORDER_MISMATCH("Traversal Order Mismatch", Icons.Default.Build),
     DYNAMIC_TYPE_SUPPORT("Dynamic Type Support", Icons.Default.Build),
     RESPONSIVE_CONTAINER("Responsive Container", Icons.Default.Build),
-    IMAGE_IN_TEXT("Image in Text", Icons.Default.Build),
+    IMAGE_IN_TEXT("Text in Image", Icons.Default.Build),
 }
 
 @Composable
