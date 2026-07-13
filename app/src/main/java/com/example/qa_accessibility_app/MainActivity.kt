@@ -229,6 +229,7 @@ fun QA_Accessibility_AppApp() {
                     AppDestinations.DYNAMIC_TYPE_SUPPORT -> DynamicTypeSupportScreen()
                     AppDestinations.RESPONSIVE_CONTAINER -> ResponsiveContainerScreen()
                     AppDestinations.IMAGE_IN_TEXT -> ImageInTextScreen()
+                    AppDestinations.MEANINGFUL_READING_ORDER -> MeaningfulReadingOrderScreen()
                     null -> {}
                 }
             }
@@ -256,6 +257,7 @@ enum class AppDestinations(
     DYNAMIC_TYPE_SUPPORT("Dynamic Type Support", Icons.Default.Build),
     RESPONSIVE_CONTAINER("Responsive Container", Icons.Default.Build),
     IMAGE_IN_TEXT("Text in Image", Icons.Default.Build),
+    MEANINGFUL_READING_ORDER("Meaningful Reading Order", Icons.Default.Build),
 }
 
 @Composable
@@ -2830,4 +2832,173 @@ private fun NativeImage(
         },
         modifier = modifier
     )
+}
+
+// =====================================================================
+// MEANINGFUL READING ORDER (WCAG 1.3.2 Meaningful Sequence)
+// =====================================================================
+// Android's uiautomator dump auto-sorts elements by visual position, so
+// traversalIndex / accessibilityTraversalBefore tricks do NOT surface as
+// violations. The ONLY way to create a real reading-order violation is to
+// make the visual top-to-bottom layout itself semantically wrong
+// (e.g. price above product name, input above its label).
+// Each card is a plain Column (no mergeDescendants) so every element stays
+// individually visible in the a11y tree.
+// =====================================================================
+
+@Composable
+fun MeaningfulReadingOrderScreen(modifier: Modifier = Modifier) {
+    val scrollState = rememberScrollState()
+    Box(modifier = modifier.fillMaxSize()) {
+        MeaningfulReadingOrderContent(scrollState = scrollState)
+        ScrollArrows(
+            scrollState = scrollState,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        )
+    }
+}
+
+@Composable
+private fun MroCard(title: String, subtitle: String, content: @Composable () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { content() }
+        }
+    }
+}
+
+@Composable
+private fun MeaningfulReadingOrderContent(
+    scrollState: ScrollState,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = "Meaningful Reading Order — meaningful-sequence",
+            style = MaterialTheme.typography.headlineSmall
+        )
+        Text(
+            text = "WCAG 1.3.2 (A). On Android the XML dump follows visual position, so a violation must be a visually wrong top-to-bottom order (e.g. price above name, input above label). Each card below renders the layout in the stated order.",
+            style = MaterialTheme.typography.bodySmall
+        )
+
+        // ---------- VIOLATIONS (visual order semantically wrong) ----------
+
+        // V-01: Price before name
+        MroCard("V-01: Price Before Name", "Price rendered ABOVE the product name.") {
+            Text("$79.99", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text("Wireless Headphones", style = MaterialTheme.typography.titleSmall)
+        }
+
+        // V-02: Input before label
+        MroCard("V-02: Input Before Label", "Text field rendered ABOVE its label.") {
+            TextField(value = "", onValueChange = {}, placeholder = { Text("Enter here...") },
+                modifier = Modifier.fillMaxWidth())
+            Text("Email")
+        }
+
+        // V-03: Controls before song
+        MroCard("V-03: Controls Before Song", "Playback controls rendered ABOVE the song title/artist.") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {}) { Text("Prev") }
+                Button(onClick = {}) { Text("Play") }
+                Button(onClick = {}) { Text("Next") }
+            }
+            Text("Bohemian Rhapsody", style = MaterialTheme.typography.titleMedium)
+            Text("Queen", style = MaterialTheme.typography.bodyMedium)
+        }
+
+        // V-04: Amount before merchant
+        MroCard("V-04: Amount Before Merchant", "Transaction amount rendered ABOVE the merchant name.") {
+            Text("-$45.99", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Starbucks", style = MaterialTheme.typography.bodyLarge)
+        }
+
+        // V-05: Error before field
+        MroCard("V-05: Error Before Field", "Error message rendered ABOVE the field it refers to.") {
+            Text("Error: Please enter a valid email address", color = Color.Red,
+                style = MaterialTheme.typography.bodyMedium)
+            Text("Email")
+            TextField(value = "", onValueChange = {}, placeholder = { Text("you@example.com") },
+                modifier = Modifier.fillMaxWidth())
+        }
+
+        // V-06: Steps out of order
+        MroCard("V-06: Steps Out Of Order", "Numbered steps rendered 3 → 1 → 2.") {
+            Text("Step 3: Add water and stir")
+            Text("Step 1: Boil the kettle")
+            Text("Step 2: Pour into the mug")
+        }
+
+        // V-07: Action before content
+        MroCard("V-07: Action Before Content", "Primary action rendered ABOVE the content it acts on.") {
+            Button(onClick = {}) { Text("Book Now") }
+            Text("Grand Plaza Hotel", style = MaterialTheme.typography.titleMedium)
+            Text("Downtown • 4.6 ★ • Free cancellation", style = MaterialTheme.typography.bodySmall)
+        }
+
+        // V-08: Engagement before post
+        MroCard("V-08: Engagement Before Post", "Like/comment counts rendered ABOVE the post text.") {
+            Text("2.4K likes • 312 comments", fontWeight = FontWeight.Bold)
+            Text("Just had the best coffee of my life at this tiny place downtown ☕")
+        }
+
+        // ---------- PASSES (natural top-to-bottom order) ----------
+
+        // P-01: Login form
+        MroCard("P-01: Login Form (Pass)", "Label → input pairs in natural order, action last.") {
+            Text("Email")
+            TextField(value = "", onValueChange = {}, placeholder = { Text("you@example.com") },
+                modifier = Modifier.fillMaxWidth())
+            Text("Password")
+            TextField(value = "", onValueChange = {}, placeholder = { Text("••••••••") },
+                modifier = Modifier.fillMaxWidth())
+            Button(onClick = {}) { Text("Sign In") }
+        }
+
+        // P-02: News article
+        MroCard("P-02: News Article (Pass)", "Headline → byline → body in reading order.") {
+            Text("City Council Approves New Transit Plan", style = MaterialTheme.typography.titleMedium)
+            Text("By Jane Doe • July 9, 2026", style = MaterialTheme.typography.bodySmall)
+            Text("The council voted 7-2 on Tuesday to fund the expansion of the light-rail network over the next five years.")
+        }
+
+        // P-03: Product card (correct)
+        MroCard("P-03: Product Card (Pass)", "Name → price → action in natural order.") {
+            Text("Wireless Headphones", style = MaterialTheme.typography.titleMedium)
+            Text("$79.99", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Button(onClick = {}) { Text("Add to Cart") }
+        }
+
+        // P-04: Settings page
+        MroCard("P-04: Settings Page (Pass)", "Section title first, then each labelled control.") {
+            Text("Settings", style = MaterialTheme.typography.titleMedium)
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Wi-Fi", modifier = Modifier.weight(1f))
+                Switch(checked = true, onCheckedChange = {})
+            }
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Bluetooth", modifier = Modifier.weight(1f))
+                Switch(checked = false, onCheckedChange = {})
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun MeaningfulReadingOrderScreenPreview() {
+    QA_Accessibility_AppTheme {
+        MeaningfulReadingOrderScreen()
+    }
 }
