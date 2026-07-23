@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TE-20569 Overlapping Interactive Elements — native XML variant.
+     Native Buttons have solid bounds, so overlaps are unambiguous (unlike the
+     small-glyph Compose controls). android:id values become resource-ids in the
+     accessibility/uiautomator tree. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <!-- XML V-01: two overlapping clickable buttons -->
+    <TextView
+        android:id="@+id/xml_overlap_v01_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML V-01: Two Overlapping Buttons (native)"
+        android:textStyle="bold"
+        android:paddingBottom="8dp" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="100dp">
+
+        <Button
+            android:id="@+id/xml_overlap_v01_confirm"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:clickable="true"
+            android:text="Confirm" />
+
+        <Button
+            android:id="@+id/xml_overlap_v01_cancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="70dp"
+            android:layout_marginTop="24dp"
+            android:clickable="true"
+            android:text="Cancel" />
+    </FrameLayout>
+
+    <!-- XML P-01: two spaced clickable buttons -->
+    <TextView
+        android:id="@+id/xml_overlap_p01_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML P-01: Spaced Buttons (native, pass)"
+        android:textStyle="bold"
+        android:paddingTop="16dp"
+        android:paddingBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/xml_overlap_p01_back"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:clickable="true"
+            android:text="Back" />
+
+        <Button
+            android:id="@+id/xml_overlap_p01_next"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="32dp"
+            android:clickable="true"
+            android:text="Next" />
+    </LinearLayout>
+</LinearLayout>

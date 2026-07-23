@@ -1,6 +1,7 @@
 package com.example.qa_accessibility_app
 
 import android.R.attr.text
+import android.content.Intent
 import android.os.Bundle
 import android.text.SpannableString
 import android.text.Spanned
@@ -18,6 +19,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +29,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -66,14 +69,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -115,14 +121,20 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun QA_Accessibility_AppApp() {
     var currentDestination by rememberSaveable { mutableStateOf<AppDestinations?>(null) }
+    // Retains each destination's saveable state (incl. scroll position) so
+    // navigating away and back restores where the user was, not the top.
+    val saveableStateHolder = rememberSaveableStateHolder()
 
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
         if (currentDestination == null) {
+            saveableStateHolder.SaveableStateProvider("home") {
+            val homeScrollState = rememberScrollState()
+            Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             Column(
                 modifier = Modifier
-                    .padding(innerPadding)
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(homeScrollState)
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -193,6 +205,9 @@ fun QA_Accessibility_AppApp() {
                     }
                 }
             }
+            ScrollArrows(scrollState = homeScrollState)
+            }
+            }
         } else {
             BackHandler {
                 currentDestination = null
@@ -211,7 +226,9 @@ fun QA_Accessibility_AppApp() {
                         contentDescription = "Go back"
                     )
                 }
-                // Content for the current destination
+                // Content for the current destination, wrapped so each screen's
+                // scroll position survives navigating away and back.
+                saveableStateHolder.SaveableStateProvider(currentDestination ?: Unit) {
                 when (currentDestination) {
                     AppDestinations.ACCESSIBLE_IMAGES -> AccessibleImagesScreen()
                     AppDestinations.INTERACTIVE_ELEMENT_A11Y -> InteractiveElementA11yScreen()
@@ -230,7 +247,12 @@ fun QA_Accessibility_AppApp() {
                     AppDestinations.RESPONSIVE_CONTAINER -> ResponsiveContainerScreen()
                     AppDestinations.IMAGE_IN_TEXT -> ImageInTextScreen()
                     AppDestinations.MEANINGFUL_READING_ORDER -> MeaningfulReadingOrderScreen()
+                    AppDestinations.OVERLAPPING_INTERACTIVE -> OverlappingInteractiveElementsScreen()
+                    AppDestinations.TWO_DIMENSIONAL_SCROLLING -> TwoDimensionalScrollingScreen()
+                    AppDestinations.NON_ACCESSIBLE_INTERACTION -> NonAccessibleInteractionScreen()
+                    AppDestinations.ORIENTATION_LOCK -> OrientationLockScreen()
                     null -> {}
+                }
                 }
             }
         }
@@ -258,6 +280,10 @@ enum class AppDestinations(
     RESPONSIVE_CONTAINER("Responsive Container", Icons.Default.Build),
     IMAGE_IN_TEXT("Text in Image", Icons.Default.Build),
     MEANINGFUL_READING_ORDER("Meaningful Reading Order", Icons.Default.Build),
+    OVERLAPPING_INTERACTIVE("Overlapping Elements", Icons.Default.Build),
+    TWO_DIMENSIONAL_SCROLLING("Two-Dimensional Scrolling", Icons.Default.Build),
+    NON_ACCESSIBLE_INTERACTION("Non-accessible Interaction", Icons.Default.Build),
+    ORIENTATION_LOCK("Orientation Lock", Icons.Default.Build),
 }
 
 @Composable
@@ -2469,15 +2495,12 @@ fun ResponsiveContainerScreenPreview() {
 @Composable
 fun ImageInTextScreen(modifier: Modifier = Modifier) {
     val scrollState = rememberScrollState()
-    Box(modifier = modifier.fillMaxSize()) {
-        ImageInTextContent(scrollState = scrollState)
-        // Floating up/down arrows to step-scroll the screen content
-        ScrollArrows(
-            scrollState = scrollState,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-        )
+    Column(modifier = modifier.fillMaxSize()) {
+        Box(modifier = Modifier.weight(1f)) {
+            ImageInTextContent(scrollState = scrollState)
+        }
+        // Up/down arrows in a fixed bottom bar, below the scroll content
+        ScrollArrows(scrollState = scrollState)
     }
 }
 
@@ -2771,7 +2794,12 @@ fun ImageInTextScreenPreview() {
     }
 }
 
-// Floating up/down arrow buttons that step-scroll a ScrollState-backed screen.
+// Up/down step-scroll buttons rendered as a fixed bottom bar. Kept OUT of the
+// scroll content (the caller places it below the scrollable area, not overlaid)
+// so the clickable FABs never overlap interactive elements — which would
+// otherwise legitimately trip the Overlapping Interactive Elements rule.
+// 56dp FABs (>= 48dp touch target) with 16dp spacing so adjacent targets don't
+// trip the insufficient-target-spacing rule either.
 @Composable
 private fun ScrollArrows(
     scrollState: ScrollState,
@@ -2780,11 +2808,12 @@ private fun ScrollArrows(
     val scope = rememberCoroutineScope()
     // Scroll by roughly one screen-height per tap
     val stepPx = with(LocalDensity.current) { 600.dp.roundToPx() }
-    // 56dp FABs (>= 48dp touch target) with 16dp spacing so adjacent
-    // targets don't trigger insufficient-target-spacing findings.
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.End),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         FloatingActionButton(
             onClick = {
@@ -2849,14 +2878,11 @@ private fun NativeImage(
 @Composable
 fun MeaningfulReadingOrderScreen(modifier: Modifier = Modifier) {
     val scrollState = rememberScrollState()
-    Box(modifier = modifier.fillMaxSize()) {
-        MeaningfulReadingOrderContent(scrollState = scrollState)
-        ScrollArrows(
-            scrollState = scrollState,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-        )
+    Column(modifier = modifier.fillMaxSize()) {
+        Box(modifier = Modifier.weight(1f)) {
+            MeaningfulReadingOrderContent(scrollState = scrollState)
+        }
+        ScrollArrows(scrollState = scrollState)
     }
 }
 
@@ -3001,4 +3027,448 @@ fun MeaningfulReadingOrderScreenPreview() {
     QA_Accessibility_AppTheme {
         MeaningfulReadingOrderScreen()
     }
+}
+
+// =====================================================================
+// TE-20569 helpers + four new rule screens
+// =====================================================================
+
+@Composable
+private fun RuleCard(title: String, subtitle: String, content: @Composable () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall)
+            content()
+        }
+    }
+}
+
+// ---------------------------------------------------------------------
+// OVERLAPPING INTERACTIVE ELEMENTS (WCAG 2.5.5, serious)
+// FAIL: two interactive (clickable/long-clickable/checkable) visible
+// elements whose bounds intersect by > 10% of the smaller element's area.
+// PASS: spaced, ancestor↔descendant, edge-adjacent, or overlap where only
+// one element is interactive.
+// ---------------------------------------------------------------------
+@Composable
+fun OverlappingInteractiveElementsScreen(modifier: Modifier = Modifier) {
+    val scrollState = rememberScrollState()
+    Column(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(scrollState).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Overlapping Interactive Elements", style = MaterialTheme.typography.headlineSmall)
+            Text("WCAG 2.5.5 (AAA), Serious. Two interactive elements whose touch targets overlap by more than 10% of the smaller area both fail.",
+                style = MaterialTheme.typography.bodySmall)
+
+            // V-01: two clickable buttons overlapping
+            RuleCard("V-01: Two Overlapping Buttons", "Both are clickable and their bounds overlap heavily.") {
+                Box(modifier = Modifier.fillMaxWidth().height(96.dp)) {
+                    Button(onClick = {}, modifier = Modifier.align(Alignment.TopStart)) { Text("Confirm") }
+                    Button(onClick = {}, modifier = Modifier.align(Alignment.TopStart).offset(x = 70.dp, y = 22.dp).zIndex(1f)) { Text("Cancel") }
+                }
+            }
+
+            // V-02: icon button overlapping a text button
+            RuleCard("V-02: Icon Over Button", "A clickable icon button sits on top of a clickable button.") {
+                Box(modifier = Modifier.fillMaxWidth().height(72.dp)) {
+                    Button(onClick = {}, modifier = Modifier.align(Alignment.CenterStart)) { Text("Add to Cart") }
+                    IconButton(onClick = {}, modifier = Modifier.align(Alignment.CenterStart).offset(x = 40.dp, y = 8.dp).zIndex(1f)) {
+                        Icon(Icons.Default.Favorite, contentDescription = "Add to favourites")
+                    }
+                }
+            }
+
+            // V-03: two overlapping checkboxes (checkable candidates)
+            RuleCard("V-03: Overlapping Checkboxes", "Two checkable elements whose touch targets overlap.") {
+                Box(modifier = Modifier.fillMaxWidth().height(64.dp)) {
+                    var a by remember { mutableStateOf(true) }
+                    var b by remember { mutableStateOf(false) }
+                    Checkbox(checked = a, onCheckedChange = { a = it }, modifier = Modifier.align(Alignment.CenterStart))
+                    Checkbox(checked = b, onCheckedChange = { b = it }, modifier = Modifier.align(Alignment.CenterStart).offset(x = 14.dp, y = 6.dp).zIndex(1f))
+                }
+            }
+
+            // V-04: two overlapping clickable cards (sibling clickables)
+            RuleCard("V-04: Overlapping Clickable Cards", "Two sibling clickable cards whose bounds overlap.") {
+                Box(modifier = Modifier.fillMaxWidth().height(120.dp)) {
+                    Box(modifier = Modifier.align(Alignment.TopStart).size(160.dp, 90.dp).clickable {}.background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.medium), contentAlignment = Alignment.Center) {
+                        Text("Card A")
+                    }
+                    Box(modifier = Modifier.align(Alignment.TopStart).offset(x = 110.dp, y = 24.dp).size(160.dp, 90.dp).clickable {}.background(MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.shapes.medium).zIndex(1f), contentAlignment = Alignment.Center) {
+                        Text("Card B")
+                    }
+                }
+            }
+
+            // V-05: switch overlapping a button (checkable + clickable)
+            RuleCard("V-05: Switch Over Button", "A checkable switch overlaps a clickable button.") {
+                Box(modifier = Modifier.fillMaxWidth().height(64.dp)) {
+                    Button(onClick = {}, modifier = Modifier.align(Alignment.CenterStart)) { Text("Save changes") }
+                    var on by remember { mutableStateOf(true) }
+                    Switch(checked = on, onCheckedChange = { on = it }, modifier = Modifier.align(Alignment.CenterStart).offset(x = 120.dp).zIndex(1f))
+                }
+            }
+
+            // V-06: two overlapping icon buttons
+            RuleCard("V-06: Overlapping Icon Buttons", "Two clickable icon buttons overlapping each other.") {
+                Box(modifier = Modifier.fillMaxWidth().height(64.dp)) {
+                    IconButton(onClick = {}, modifier = Modifier.align(Alignment.CenterStart)) {
+                        Icon(Icons.Default.Favorite, contentDescription = "Like")
+                    }
+                    IconButton(onClick = {}, modifier = Modifier.align(Alignment.CenterStart).offset(x = 16.dp, y = 6.dp).zIndex(1f)) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                }
+            }
+
+            // P-01: spaced buttons
+            RuleCard("P-01: Spaced Buttons (Pass)", "Two clickable buttons with clear space between them.") {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    Button(onClick = {}) { Text("Back") }
+                    Button(onClick = {}) { Text("Next") }
+                }
+            }
+
+            // P-02: clickable child inside clickable container (ancestor exempt)
+            RuleCard("P-02: Clickable Child In Container (Pass)", "Container is clickable and encloses its own clickable child — ancestor/descendant pairs are exempt.") {
+                Box(modifier = Modifier.fillMaxWidth().clickable {}.background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.medium).padding(16.dp)) {
+                    Button(onClick = {}, modifier = Modifier.align(Alignment.Center)) { Text("Inner Button") }
+                }
+            }
+
+            // P-03: edge-adjacent buttons (zero-area intersection)
+            RuleCard("P-03: Edge-Adjacent Buttons (Pass)", "Two clickable buttons that touch but do not overlap.") {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+                    Button(onClick = {}, modifier = Modifier.weight(1f)) { Text("Left") }
+                    Button(onClick = {}, modifier = Modifier.weight(1f)) { Text("Right") }
+                }
+            }
+
+            // P-04: decorative (non-interactive) badge over a button
+            RuleCard("P-04: Decorative Badge Over Button (Pass)", "Only the button is interactive; the overlapping badge is a non-interactive decoration.") {
+                Box(modifier = Modifier.fillMaxWidth().height(64.dp)) {
+                    Button(onClick = {}, modifier = Modifier.align(Alignment.CenterStart)) { Text("Subscribe") }
+                    Box(modifier = Modifier.align(Alignment.CenterStart).offset(x = 108.dp, y = (-8).dp).size(36.dp).background(Color.Red, CircleShape).zIndex(1f), contentAlignment = Alignment.Center) {
+                        Text("NEW", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+
+            // L-01: full-edge overlap — a known limitation, NOT detected.
+            RuleCard("L-01: Full-Edge Overlap (Known Limitation — Not Detected)", "The top button covers the lower one flush along its full right edge (x-only offset). Android reports occlusion-clipped bounds via getBoundsInScreen(), so the lower element's rect shrinks to its uncovered strip and the pair reads as edge-adjacent — the rule cannot detect this. Contrast with the diagonal overlaps above, which DO fire.") {
+                Box(modifier = Modifier.fillMaxWidth().height(56.dp)) {
+                    Button(onClick = {}, modifier = Modifier.align(Alignment.CenterStart)) { Text("Base") }
+                    Button(onClick = {}, modifier = Modifier.align(Alignment.CenterStart).offset(x = 64.dp).zIndex(1f)) { Text("Overlay") }
+                }
+            }
+
+            // XML variant — same rule rendered from a native XML layout so you can
+            // compare Compose vs traditional Views in the scan.
+            RuleCard("XML Variant (native views)", "Inflated from res/layout/overlapping_elements_xml.xml — native Buttons with solid bounds.") {
+                AndroidView(
+                    factory = { ctx -> android.view.View.inflate(ctx, R.layout.overlapping_elements_xml, null) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+        ScrollArrows(scrollState = scrollState)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun OverlappingInteractiveElementsScreenPreview() {
+    QA_Accessibility_AppTheme { OverlappingInteractiveElementsScreen() }
+}
+
+// ---------------------------------------------------------------------
+// TWO-DIMENSIONAL SCROLLING (WCAG 1.4.10, serious)
+// FAIL: a single node that can scroll BOTH horizontally and vertically.
+// PASS: one-directional scrollers, including a horizontal carousel nested
+// inside a vertical feed (separate one-directional nodes).
+// ---------------------------------------------------------------------
+@Composable
+fun TwoDimensionalScrollingScreen(modifier: Modifier = Modifier) {
+    val outerScroll = rememberScrollState()
+    Column(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(outerScroll).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Two-Dimensional Scrolling", style = MaterialTheme.typography.headlineSmall)
+            Text("WCAG 1.4.10 (AA), Serious. A single container that scrolls both horizontally and vertically fails.",
+                style = MaterialTheme.typography.bodySmall)
+
+            // V-01: one box scrollable on BOTH axes
+            RuleCard("V-01: Scrolls Both Axes", "This box has horizontalScroll AND verticalScroll on the same node.") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .horizontalScroll(rememberScrollState())
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Column {
+                        repeat(12) { r ->
+                            Row {
+                                repeat(12) { c ->
+                                    Box(modifier = Modifier.size(80.dp).padding(2.dp).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+                                        Text("$r,$c")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // V-02: wide + tall data table scrollable both axes
+            RuleCard("V-02: Data Table Both Axes", "A table wider and taller than the viewport, scrollable on both axes.") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .horizontalScroll(rememberScrollState())
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Column {
+                        repeat(15) { r ->
+                            Row {
+                                repeat(8) { c ->
+                                    Box(modifier = Modifier.size(110.dp, 40.dp).padding(1.dp).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+                                        Text("R${r + 1}C${c + 1}")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // P-01: vertical-only scroller
+            RuleCard("P-01: Vertical Only (Pass)", "Scrolls on a single axis.") {
+                Column(modifier = Modifier.fillMaxWidth().height(140.dp).background(MaterialTheme.colorScheme.surfaceVariant).verticalScroll(rememberScrollState()).padding(8.dp)) {
+                    repeat(20) { Text("Row ${it + 1}", modifier = Modifier.padding(vertical = 6.dp)) }
+                }
+            }
+
+            // P-02: horizontal carousel nested inside a vertical feed
+            RuleCard("P-02: Carousel In Feed (Pass)", "A horizontal carousel nested inside a vertical feed — two separate one-directional nodes.") {
+                Column(modifier = Modifier.fillMaxWidth().height(200.dp).verticalScroll(rememberScrollState())) {
+                    Text("Feed item above", modifier = Modifier.padding(vertical = 8.dp))
+                    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        repeat(10) {
+                            Box(modifier = Modifier.size(96.dp).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+                                Text("Card ${it + 1}")
+                            }
+                        }
+                    }
+                    repeat(6) { Text("Feed item ${it + 1} below", modifier = Modifier.padding(vertical = 8.dp)) }
+                }
+            }
+        }
+        ScrollArrows(scrollState = outerScroll)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun TwoDimensionalScrollingScreenPreview() {
+    QA_Accessibility_AppTheme { TwoDimensionalScrollingScreen() }
+}
+
+// ---------------------------------------------------------------------
+// SCREEN READER FOCUS / NON-ACCESSIBLE INTERACTION (WCAG 4.1.2, critical)
+// FAIL: a clickable, visible element with announceable text (or an image)
+// that is importantForAccessibility=NO — a real touch target the screen
+// reader can never focus. Rendered as native Views so importantForAccessibility
+// is carried in the View tree the rule reads.
+// PASS: clickable elements properly exposed to accessibility.
+// ---------------------------------------------------------------------
+@Composable
+fun NonAccessibleInteractionScreen(modifier: Modifier = Modifier) {
+    val scrollState = rememberScrollState()
+    Column(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(scrollState).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Screen Reader Focus for Interactive Elements", style = MaterialTheme.typography.headlineSmall)
+            Text("WCAG 4.1.2 (A), Critical. A clickable element that is important-for-accessibility=NO can never be focused by a screen reader.",
+                style = MaterialTheme.typography.bodySmall)
+
+            // V-01: clickable text row, importantForAccessibility = NO
+            RuleCard("V-01: Clickable Text, Not Important", "A clickable row with visible text marked importantForAccessibility=NO.") {
+                ClickableNativeText("Tap to continue", important = false,
+                    modifier = Modifier.fillMaxWidth().height(52.dp))
+            }
+
+            // V-02: clickable image, importantForAccessibility = NO
+            RuleCard("V-02: Clickable Image, Not Important", "A clickable image marked importantForAccessibility=NO.") {
+                ClickableNativeImage(R.drawable.buy_now_button, important = false,
+                    modifier = Modifier.fillMaxWidth().height(72.dp))
+            }
+
+            // V-03: clickable native container (LinearLayout + text), not important
+            RuleCard("V-03: Clickable Container, Not Important", "A clickable native card (LinearLayout + text) marked importantForAccessibility=NO.") {
+                AndroidView(
+                    factory = { ctx ->
+                        android.widget.LinearLayout(ctx).apply {
+                            orientation = android.widget.LinearLayout.HORIZONTAL
+                            isClickable = true
+                            setPadding(32, 24, 32, 24)
+                            importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                            setOnClickListener {}
+                            addView(android.widget.TextView(ctx).apply { text = "Open details" })
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            // V-04: Compose clickable hidden from a11y via clearAndSetSemantics
+            RuleCard("V-04: Compose Clickable Hidden From A11y", "A clickable Compose row with visible text but clearAndSetSemantics {} — the screen reader can never focus it.") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {}
+                        .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.medium)
+                        .padding(16.dp)
+                        .clearAndSetSemantics {},
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Hidden clickable row")
+                }
+            }
+
+            // P-01: proper Compose button
+            RuleCard("P-01: Labelled Button (Pass)", "A standard button — clickable and exposed to accessibility.") {
+                Button(onClick = {}) { Text("Continue") }
+            }
+
+            // P-02: clickable native text, important + contentDescription
+            RuleCard("P-02: Clickable Text, Important (Pass)", "A clickable row that is important-for-accessibility with a label.") {
+                ClickableNativeText("Open settings", important = true,
+                    modifier = Modifier.fillMaxWidth().height(52.dp))
+            }
+
+            // XML variant — same rule rendered from a native XML layout.
+            RuleCard("XML Variant (native views)", "Inflated from res/layout/non_accessible_interaction_xml.xml — clickable Views with android:importantForAccessibility=\"no\".") {
+                AndroidView(
+                    factory = { ctx -> android.view.View.inflate(ctx, R.layout.non_accessible_interaction_xml, null) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+        ScrollArrows(scrollState = scrollState)
+    }
+}
+
+// A clickable native TextView whose importantForAccessibility flag is toggleable.
+@Composable
+private fun ClickableNativeText(text: String, important: Boolean, modifier: Modifier = Modifier) {
+    AndroidView(
+        factory = { ctx ->
+            android.widget.TextView(ctx).apply {
+                isClickable = true
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setOnClickListener {}
+            }
+        },
+        update = { tv ->
+            tv.text = text
+            tv.importantForAccessibility = if (important)
+                android.view.View.IMPORTANT_FOR_ACCESSIBILITY_YES
+            else
+                android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        },
+        modifier = modifier
+    )
+}
+
+// A clickable native ImageView whose importantForAccessibility flag is toggleable.
+@Composable
+private fun ClickableNativeImage(
+    @androidx.annotation.DrawableRes resId: Int,
+    important: Boolean,
+    modifier: Modifier = Modifier
+) {
+    AndroidView(
+        factory = { ctx ->
+            android.widget.ImageView(ctx).apply {
+                isClickable = true
+                adjustViewBounds = true
+                scaleType = android.widget.ImageView.ScaleType.FIT_START
+                setOnClickListener {}
+            }
+        },
+        update = { iv ->
+            iv.setImageResource(resId)
+            iv.importantForAccessibility = if (important)
+                android.view.View.IMPORTANT_FOR_ACCESSIBILITY_YES
+            else
+                android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        },
+        modifier = modifier
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun NonAccessibleInteractionScreenPreview() {
+    QA_Accessibility_AppTheme { NonAccessibleInteractionScreen() }
+}
+
+// ---------------------------------------------------------------------
+// APP & SCREEN ORIENTATION LOCK (WCAG 1.3.4, moderate)
+// Detection reads the foreground activity's MANIFEST android:screenOrientation.
+// The violation therefore lives in a dedicated Activity locked to portrait
+// in AndroidManifest.xml; this launcher screen opens it. MainActivity has no
+// activity-level screenOrientation, so it is the pass reference.
+// ---------------------------------------------------------------------
+@Composable
+fun OrientationLockScreen(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    Column(
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("App & Screen Orientation Lock", style = MaterialTheme.typography.headlineSmall)
+        Text("WCAG 1.3.4 (AA), Moderate. An activity whose manifest android:screenOrientation locks it to a single orientation fails. Detection is manifest-based, so the violation is a separate locked activity.",
+            style = MaterialTheme.typography.bodySmall)
+
+        RuleCard("V-01: Portrait-Locked Activity", "Opens an activity declared with android:screenOrientation=\"portrait\" — scan that screen to see the violation.") {
+            Button(onClick = { context.startActivity(Intent(context, OrientationLockActivity::class.java)) }) {
+                Text("Open portrait-locked screen")
+            }
+        }
+
+        RuleCard("V-02: Landscape-Locked Activity", "Opens an activity declared with android:screenOrientation=\"landscape\".") {
+            Button(onClick = { context.startActivity(Intent(context, LandscapeLockActivity::class.java)) }) {
+                Text("Open landscape-locked screen")
+            }
+        }
+
+        RuleCard("V-03: No-Sensor-Locked Activity", "Opens an activity declared with android:screenOrientation=\"nosensor\" (ignores the rotation sensor).") {
+            Button(onClick = { context.startActivity(Intent(context, NoSensorLockActivity::class.java)) }) {
+                Text("Open nosensor-locked screen")
+            }
+        }
+
+        RuleCard("P-01: Rotatable Activity (Pass)", "Opens an activity declared with android:screenOrientation=\"fullSensor\" — it rotates with the device and passes the rule.") {
+            Button(onClick = { context.startActivity(Intent(context, RotatableActivity::class.java)) }) {
+                Text("Open rotatable screen")
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun OrientationLockScreenPreview() {
+    QA_Accessibility_AppTheme { OrientationLockScreen() }
 }

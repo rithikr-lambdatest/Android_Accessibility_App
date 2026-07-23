@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TE-20569 Screen Reader Focus / Non-Accessible Interaction — native XML variant.
+     A clickable View with text but importantForAccessibility="no" can never be
+     focused by a screen reader. android:id values become resource-ids in the tree. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <!-- XML V-01: clickable text, importantForAccessibility=no -->
+    <TextView
+        android:id="@+id/xml_non_acc_v01_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML V-01: Clickable Text, Not Important (native)"
+        android:textStyle="bold"
+        android:paddingBottom="8dp" />
+
+    <TextView
+        android:id="@+id/xml_non_acc_v01_target"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clickable="true"
+        android:importantForAccessibility="no"
+        android:padding="16dp"
+        android:text="Tap to continue" />
+
+    <!-- XML V-02: clickable container (LinearLayout) with text, not important -->
+    <TextView
+        android:id="@+id/xml_non_acc_v02_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML V-02: Clickable Container, Not Important (native)"
+        android:textStyle="bold"
+        android:paddingTop="16dp"
+        android:paddingBottom="8dp" />
+
+    <LinearLayout
+        android:id="@+id/xml_non_acc_v02_target"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clickable="true"
+        android:importantForAccessibility="no"
+        android:orientation="horizontal"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Open details" />
+    </LinearLayout>
+
+    <!-- XML P-01: clickable button, exposed to accessibility -->
+    <TextView
+        android:id="@+id/xml_non_acc_p01_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML P-01: Labelled Button (native, pass)"
+        android:textStyle="bold"
+        android:paddingTop="16dp"
+        android:paddingBottom="8dp" />
+
+    <Button
+        android:id="@+id/xml_non_acc_p01_target"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:clickable="true"
+        android:text="Continue" />
+</LinearLayout>
