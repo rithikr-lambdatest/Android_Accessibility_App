@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -251,6 +252,9 @@ fun QA_Accessibility_AppApp() {
                     AppDestinations.TWO_DIMENSIONAL_SCROLLING -> TwoDimensionalScrollingScreen()
                     AppDestinations.NON_ACCESSIBLE_INTERACTION -> NonAccessibleInteractionScreen()
                     AppDestinations.ORIENTATION_LOCK -> OrientationLockScreen()
+                    AppDestinations.MINIMUM_TEXT_SIZE -> MinimumTextSizeScreen()
+                    AppDestinations.INVALID_RANGE_VALUES -> InvalidRangeValuesScreen()
+                    AppDestinations.UNIQUE_OPTION_NAMES -> UniqueOptionNamesScreen()
                     null -> {}
                 }
                 }
@@ -284,6 +288,9 @@ enum class AppDestinations(
     TWO_DIMENSIONAL_SCROLLING("Two-Dimensional Scrolling", Icons.Default.Build),
     NON_ACCESSIBLE_INTERACTION("Non-accessible Interaction", Icons.Default.Build),
     ORIENTATION_LOCK("Orientation Lock", Icons.Default.Build),
+    MINIMUM_TEXT_SIZE("Minimum Text Size", Icons.Default.Build),
+    INVALID_RANGE_VALUES("Invalid Range Values", Icons.Default.Build),
+    UNIQUE_OPTION_NAMES("Unique Option Names", Icons.Default.Build),
 }
 
 @Composable
@@ -3471,4 +3478,239 @@ fun OrientationLockScreen(modifier: Modifier = Modifier) {
 @Composable
 fun OrientationLockScreenPreview() {
     QA_Accessibility_AppTheme { OrientationLockScreen() }
+}
+
+// =====================================================================
+// TE-21951 — three new rule screens + helpers
+// =====================================================================
+
+// Native TextView with an explicit, non-scalable text unit (dp/px/pt/sp).
+@Composable
+private fun NativeSizedText(text: String, unit: Int, size: Float, modifier: Modifier = Modifier) {
+    AndroidView(
+        factory = { ctx -> android.widget.TextView(ctx) },
+        update = { tv ->
+            tv.text = text
+            tv.setTextSize(unit, size)
+        },
+        modifier = modifier
+    )
+}
+
+// A custom View that exposes an arbitrary RangeInfo to the a11y tree.
+// Native SeekBar/ProgressBar clamp their values, so this is the reliable way
+// to produce invalid ranges for the InvalidRangeValues rule.
+@Composable
+private fun RangeInfoView(min: Float, max: Float, current: Float, label: String, modifier: Modifier = Modifier) {
+    // A real SeekBar (native slider look) that reports the given RangeInfo to the
+    // a11y tree instead of its own clamped one — a proper-looking control that
+    // still exposes invalid min/max/current for the rule.
+    AndroidView(
+        factory = { ctx ->
+            object : android.widget.SeekBar(ctx) {
+                override fun onInitializeAccessibilityNodeInfo(info: android.view.accessibility.AccessibilityNodeInfo) {
+                    super.onInitializeAccessibilityNodeInfo(info)
+                    @Suppress("DEPRECATION")
+                    info.rangeInfo = android.view.accessibility.AccessibilityNodeInfo.RangeInfo.obtain(
+                        android.view.accessibility.AccessibilityNodeInfo.RangeInfo.RANGE_TYPE_FLOAT,
+                        min, max, current
+                    )
+                }
+            }.apply {
+                this.max = 100
+                progress = 50
+                contentDescription = label
+            }
+        },
+        modifier = modifier
+    )
+}
+
+// A native RadioGroup (a real selection group in the a11y tree).
+@Composable
+private fun NativeRadioGroup(labels: List<String>, modifier: Modifier = Modifier) {
+    AndroidView(
+        factory = { ctx ->
+            android.widget.RadioGroup(ctx).apply {
+                orientation = android.widget.RadioGroup.VERTICAL
+                labels.forEach { label ->
+                    addView(android.widget.RadioButton(ctx).apply { text = label })
+                }
+            }
+        },
+        modifier = modifier
+    )
+}
+
+// ---------------------------------------------------------------------
+// MINIMUM TEXT SIZE (Best Practice, minor)
+// Non-scalable text (dp/px/pt) < 16dp fails. SP text and Compose Text
+// (SP by default) are skipped, so violations use native TextViews.
+// ---------------------------------------------------------------------
+@Composable
+fun MinimumTextSizeScreen(modifier: Modifier = Modifier) {
+    val scrollState = rememberScrollState()
+    Column(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(scrollState).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Minimum Text Size", style = MaterialTheme.typography.headlineSmall)
+            Text("Best Practice (Minor). Non-scalable text (dp/px/pt) below 16dp fails. SP text and Compose Text (SP by default) are skipped because they scale with the user's font setting.",
+                style = MaterialTheme.typography.bodySmall)
+
+            RuleCard("V-01: 8dp (DIP)", "Native text sized 8dp — below the 16dp minimum.") {
+                NativeSizedText("Tiny 8dp text", android.util.TypedValue.COMPLEX_UNIT_DIP, 8f, Modifier.fillMaxWidth())
+            }
+            RuleCard("V-02: 10px (PX)", "Native text sized 10px — below 16dp.") {
+                NativeSizedText("Tiny 10px text", android.util.TypedValue.COMPLEX_UNIT_PX, 10f, Modifier.fillMaxWidth())
+            }
+            RuleCard("V-03: 12dp (DIP)", "Native text sized 12dp — below 16dp.") {
+                NativeSizedText("Small 12dp text", android.util.TypedValue.COMPLEX_UNIT_DIP, 12f, Modifier.fillMaxWidth())
+            }
+            RuleCard("V-04: 6pt (PT)", "Native text sized 6pt — below 16dp.") {
+                NativeSizedText("Tiny 6pt text", android.util.TypedValue.COMPLEX_UNIT_PT, 6f, Modifier.fillMaxWidth())
+            }
+            RuleCard("P-01: 16dp (DIP, at threshold)", "At the 16dp threshold — passes.") {
+                NativeSizedText("16dp text", android.util.TypedValue.COMPLEX_UNIT_DIP, 16f, Modifier.fillMaxWidth())
+            }
+            RuleCard("P-02: 20dp (DIP)", "Above threshold — passes.") {
+                NativeSizedText("20dp text", android.util.TypedValue.COMPLEX_UNIT_DIP, 20f, Modifier.fillMaxWidth())
+            }
+            RuleCard("P-03: 10sp (SP, skipped)", "SP is scalable — the rule skips it.") {
+                NativeSizedText("10sp text", android.util.TypedValue.COMPLEX_UNIT_SP, 10f, Modifier.fillMaxWidth())
+            }
+            RuleCard("P-04: Compose Text 14.sp (skipped)", "Compose Text uses SP by default — skipped.") {
+                Text("Compose 14.sp text", fontSize = 14.sp)
+            }
+        }
+        ScrollArrows(scrollState = scrollState)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun MinimumTextSizeScreenPreview() {
+    QA_Accessibility_AppTheme { MinimumTextSizeScreen() }
+}
+
+// ---------------------------------------------------------------------
+// INVALID RANGE VALUES (WCAG 4.1.2, serious)
+// A range control fails if min >= max, or current is outside [min, max].
+// ---------------------------------------------------------------------
+@Composable
+fun InvalidRangeValuesScreen(modifier: Modifier = Modifier) {
+    val scrollState = rememberScrollState()
+    Column(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(scrollState).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Invalid Range Values", style = MaterialTheme.typography.headlineSmall)
+            Text("WCAG 4.1.2 (A), Serious. Fails when min >= max, or current falls outside [min, max]. Native SeekBar clamps values, so these use a custom View that sets RangeInfo directly.",
+                style = MaterialTheme.typography.bodySmall)
+
+            RuleCard("V-01: current > max (0, 100, 150)", "RangeInfo current 150 exceeds max 100.") {
+                RangeInfoView(0f, 100f, 150f, "Volume", Modifier.fillMaxWidth().height(48.dp))
+            }
+            RuleCard("V-02: min > max (100, 50, 75)", "Inverted range — min 100 is greater than max 50.") {
+                RangeInfoView(100f, 50f, 75f, "Brightness", Modifier.fillMaxWidth().height(48.dp))
+            }
+            RuleCard("V-03: min == max (50, 50, 50)", "Zero-width range — min equals max.") {
+                RangeInfoView(50f, 50f, 50f, "Level", Modifier.fillMaxWidth().height(48.dp))
+            }
+            RuleCard("V-04: current < min (0, 100, -10)", "RangeInfo current -10 is below min 0.") {
+                RangeInfoView(0f, 100f, -10f, "Progress", Modifier.fillMaxWidth().height(48.dp))
+            }
+            RuleCard("P-01: valid (0, 100, 50)", "Current within range — passes.") {
+                RangeInfoView(0f, 100f, 50f, "Volume", Modifier.fillMaxWidth().height(48.dp))
+            }
+            RuleCard("P-02: current at min (0, 100, 0)", "Current at the min boundary — passes.") {
+                RangeInfoView(0f, 100f, 0f, "Brightness", Modifier.fillMaxWidth().height(48.dp))
+            }
+            RuleCard("P-03: current at max (0, 100, 100)", "Current at the max boundary — passes.") {
+                RangeInfoView(0f, 100f, 100f, "Progress", Modifier.fillMaxWidth().height(48.dp))
+            }
+        }
+        ScrollArrows(scrollState = scrollState)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun InvalidRangeValuesScreenPreview() {
+    QA_Accessibility_AppTheme { InvalidRangeValuesScreen() }
+}
+
+// ---------------------------------------------------------------------
+// UNIQUE OPTION NAMES (WCAG 4.1.2 + 1.3.1, moderate)
+// Options within a selection group must have distinct labels. Lists
+// (RecyclerView / plain Column of buttons) are NOT selection groups.
+// ---------------------------------------------------------------------
+@Composable
+fun UniqueOptionNamesScreen(modifier: Modifier = Modifier) {
+    val scrollState = rememberScrollState()
+    Column(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(scrollState).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Unique Option Names", style = MaterialTheme.typography.headlineSmall)
+            Text("WCAG 4.1.2 + 1.3.1 (A), Moderate. Options within a selection group (RadioGroup / SelectableGroup) must have distinct labels. Same labels in separate groups, or in a plain list, are fine.",
+                style = MaterialTheme.typography.bodySmall)
+
+            RuleCard("V-01: RadioGroup — duplicate 'Option'", "Two 'Option' + one 'Different' — the 'Option' pair is flagged, 'Different' is not.") {
+                NativeRadioGroup(listOf("Option", "Option", "Different"), Modifier.fillMaxWidth())
+            }
+            RuleCard("V-02: RadioGroup — three 'Yes'", "All three identical labels are flagged.") {
+                NativeRadioGroup(listOf("Yes", "Yes", "Yes"), Modifier.fillMaxWidth())
+            }
+            RuleCard("V-03: Compose SelectableGroup — duplicates", "SelectableGroup auto-populates CollectionInfo; the duplicate 'Standard' pair is flagged.") {
+                val options = listOf("Standard", "Standard", "Premium")
+                var selected by remember { mutableStateOf(0) }
+                Column(modifier = Modifier.selectableGroup()) {
+                    options.forEachIndexed { i, label ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(selected = selected == i, onClick = { selected = i }, role = Role.RadioButton)
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = selected == i, onClick = null)
+                            Text(label, modifier = Modifier.padding(start = 8.dp))
+                        }
+                    }
+                }
+            }
+            RuleCard("P-01: RadioGroup — unique labels", "Monthly / Yearly / Lifetime — all distinct.") {
+                NativeRadioGroup(listOf("Monthly", "Yearly", "Lifetime"), Modifier.fillMaxWidth())
+            }
+            RuleCard("P-02: Two separate groups, same labels", "Same 'Yes'/'No' labels in DIFFERENT groups is fine.") {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Notifications", style = MaterialTheme.typography.labelLarge)
+                    NativeRadioGroup(listOf("Yes", "No"), Modifier.fillMaxWidth())
+                    Text("Marketing emails", style = MaterialTheme.typography.labelLarge)
+                    NativeRadioGroup(listOf("Yes", "No"), Modifier.fillMaxWidth())
+                }
+            }
+            RuleCard("P-03: List of buttons (not a group)", "A plain list with repeated 'Add to cart' — not a selection group, so not flagged.") {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    repeat(3) {
+                        Button(onClick = {}, modifier = Modifier.fillMaxWidth()) { Text("Add to cart") }
+                    }
+                }
+            }
+            RuleCard("P-04: Empty-label radios", "Empty labels are skipped.") {
+                NativeRadioGroup(listOf("", "", ""), Modifier.fillMaxWidth())
+            }
+        }
+        ScrollArrows(scrollState = scrollState)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun UniqueOptionNamesScreenPreview() {
+    QA_Accessibility_AppTheme { UniqueOptionNamesScreen() }
 }
