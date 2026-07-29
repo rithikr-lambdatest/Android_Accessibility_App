@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TE-21951 Unique Option Names — native XML variant.
+     RadioGroup is a real selection group in the a11y tree. Duplicate labels
+     among the RadioButtons of one group fail; same labels across separate
+     groups are fine. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <!-- XML V-01: duplicate "Option" within one group -->
+    <TextView
+        android:id="@+id/xml_uon_v01_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML V-01: RadioGroup — duplicate 'Option'"
+        android:textStyle="bold"
+        android:paddingTop="8dp" />
+
+    <RadioGroup
+        android:id="@+id/xml_uon_v01_group"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <RadioButton
+            android:id="@+id/xml_uon_v01_a"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Option" />
+
+        <RadioButton
+            android:id="@+id/xml_uon_v01_b"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Option" />
+
+        <RadioButton
+            android:id="@+id/xml_uon_v01_c"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Different" />
+    </RadioGroup>
+
+    <!-- XML V-02: three identical "Yes" -->
+    <TextView
+        android:id="@+id/xml_uon_v02_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML V-02: RadioGroup — three 'Yes'"
+        android:textStyle="bold"
+        android:paddingTop="16dp" />
+
+    <RadioGroup
+        android:id="@+id/xml_uon_v02_group"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <RadioButton
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Yes" />
+
+        <RadioButton
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Yes" />
+
+        <RadioButton
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Yes" />
+    </RadioGroup>
+
+    <!-- XML P-01: unique labels -->
+    <TextView
+        android:id="@+id/xml_uon_p01_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML P-01: RadioGroup — unique labels"
+        android:textStyle="bold"
+        android:paddingTop="16dp" />
+
+    <RadioGroup
+        android:id="@+id/xml_uon_p01_group"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <RadioButton
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Monthly" />
+
+        <RadioButton
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Yearly" />
+
+        <RadioButton
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Lifetime" />
+    </RadioGroup>
+
+    <!-- XML P-02: same labels in two SEPARATE groups is fine -->
+    <TextView
+        android:id="@+id/xml_uon_p02_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML P-02: Two separate groups, same labels"
+        android:textStyle="bold"
+        android:paddingTop="16dp" />
+
+    <RadioGroup
+        android:id="@+id/xml_uon_p02_group_a"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <RadioButton
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Yes" />
+
+        <RadioButton
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No" />
+    </RadioGroup>
+
+    <RadioGroup
+        android:id="@+id/xml_uon_p02_group_b"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="8dp">
+
+        <RadioButton
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Yes" />
+
+        <RadioButton
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No" />
+    </RadioGroup>
+</LinearLayout>

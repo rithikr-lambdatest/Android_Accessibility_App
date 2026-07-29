@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TE-21951 InvalidRangeValues XML variant: lets a layout declare an
+         arbitrary (possibly invalid) RangeInfo on a SeekBar-looking control. -->
+    <declare-styleable name="RangeInfoSeekBar">
+        <attr name="rangeMin" format="float" />
+        <attr name="rangeMax" format="float" />
+        <attr name="rangeCurrent" format="float" />
+        <attr name="rangeLabel" format="string" />
+    </declare-styleable>
+</resources>

@@ -1,6 +1,7 @@
 package com.example.qa_accessibility_app
 
 import android.R.attr.text
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.text.SpannableString
@@ -3542,6 +3543,59 @@ private fun NativeRadioGroup(labels: List<String>, modifier: Modifier = Modifier
     )
 }
 
+// Material Components views (ChipGroup / BottomNavigationView / TabLayout) require a
+// Material3 theme to inflate. The app's activity theme is a framework Material theme,
+// so wrap only these widgets in a Material3 ContextThemeWrapper — no global theme change.
+private fun materialCtx(ctx: Context) =
+    android.view.ContextThemeWrapper(ctx, com.google.android.material.R.style.Theme_Material3_Light)
+
+// A Material ChipGroup in single-selection mode — a selection group in the a11y tree.
+@Composable
+private fun MaterialChipGroup(labels: List<String>, modifier: Modifier = Modifier) {
+    AndroidView(
+        factory = { ctx ->
+            val themed = materialCtx(ctx)
+            com.google.android.material.chip.ChipGroup(themed).apply {
+                isSingleSelection = true
+                labels.forEach { label ->
+                    addView(com.google.android.material.chip.Chip(themed).apply {
+                        text = label
+                        isCheckable = true
+                    })
+                }
+            }
+        },
+        modifier = modifier
+    )
+}
+
+// A Material BottomNavigationView — a selection group (menu items).
+@Composable
+private fun MaterialBottomNav(labels: List<String>, modifier: Modifier = Modifier) {
+    AndroidView(
+        factory = { ctx ->
+            com.google.android.material.bottomnavigation.BottomNavigationView(materialCtx(ctx)).apply {
+                labels.forEachIndexed { i, label -> menu.add(0, i, i, label) }
+            }
+        },
+        modifier = modifier
+    )
+}
+
+// A Material TabLayout — a selection group (tabs).
+@Composable
+private fun MaterialTabLayout(labels: List<String>, modifier: Modifier = Modifier) {
+    AndroidView(
+        factory = { ctx ->
+            com.google.android.material.tabs.TabLayout(materialCtx(ctx)).apply {
+                tabMode = com.google.android.material.tabs.TabLayout.MODE_SCROLLABLE
+                labels.forEach { label -> addTab(newTab().setText(label)) }
+            }
+        },
+        modifier = modifier
+    )
+}
+
 // ---------------------------------------------------------------------
 // MINIMUM TEXT SIZE (Best Practice, minor)
 // Non-scalable text (dp/px/pt) < 16dp fails. SP text and Compose Text
@@ -3582,6 +3636,12 @@ fun MinimumTextSizeScreen(modifier: Modifier = Modifier) {
             }
             RuleCard("P-04: Compose Text 14.sp (skipped)", "Compose Text uses SP by default — skipped.") {
                 Text("Compose 14.sp text", fontSize = 14.sp)
+            }
+            RuleCard("XML Variant (native layout)", "Inflated from res/layout/minimum_text_size_xml.xml — TextViews with android:textSize in dp/px/pt (violations) and sp (skipped).") {
+                AndroidView(
+                    factory = { ctx -> android.view.View.inflate(ctx, R.layout.minimum_text_size_xml, null) },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
         ScrollArrows(scrollState = scrollState)
@@ -3630,6 +3690,12 @@ fun InvalidRangeValuesScreen(modifier: Modifier = Modifier) {
             }
             RuleCard("P-03: current at max (0, 100, 100)", "Current at the max boundary — passes.") {
                 RangeInfoView(0f, 100f, 100f, "Progress", Modifier.fillMaxWidth().height(48.dp))
+            }
+            RuleCard("XML Variant (native layout)", "Inflated from res/layout/invalid_range_values_xml.xml — RangeInfoSeekBar declares invalid ranges via app:range* attributes.") {
+                AndroidView(
+                    factory = { ctx -> android.view.View.inflate(ctx, R.layout.invalid_range_values_xml, null) },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
         ScrollArrows(scrollState = scrollState)
@@ -3703,6 +3769,33 @@ fun UniqueOptionNamesScreen(modifier: Modifier = Modifier) {
             }
             RuleCard("P-04: Empty-label radios", "Empty labels are skipped.") {
                 NativeRadioGroup(listOf("", "", ""), Modifier.fillMaxWidth())
+            }
+
+            // Other detectable group container types (beyond RadioGroup).
+            RuleCard("V-04: ChipGroup — duplicate 'Filter'", "Single-selection ChipGroup with two 'Filter' chips — the duplicate pair is flagged.") {
+                MaterialChipGroup(listOf("Filter", "Filter", "Sort"), Modifier.fillMaxWidth())
+            }
+            RuleCard("P-05: ChipGroup — unique chips", "Small / Medium / Large — all distinct.") {
+                MaterialChipGroup(listOf("Small", "Medium", "Large"), Modifier.fillMaxWidth())
+            }
+            RuleCard("V-05: BottomNavigationView — duplicate 'Home'", "Bottom nav with two 'Home' items — the duplicate pair is flagged.") {
+                MaterialBottomNav(listOf("Home", "Home", "Profile"), Modifier.fillMaxWidth())
+            }
+            RuleCard("P-06: BottomNavigationView — unique items", "Home / Search / Profile — all distinct.") {
+                MaterialBottomNav(listOf("Home", "Search", "Profile"), Modifier.fillMaxWidth())
+            }
+            RuleCard("V-06: TabLayout — three 'Tab'", "TabLayout with three identical 'Tab' labels — all flagged.") {
+                MaterialTabLayout(listOf("Tab", "Tab", "Tab"), Modifier.fillMaxWidth())
+            }
+            RuleCard("P-07: TabLayout — unique tabs", "Overview / Details / Reviews — all distinct.") {
+                MaterialTabLayout(listOf("Overview", "Details", "Reviews"), Modifier.fillMaxWidth())
+            }
+
+            RuleCard("XML Variant (native layout)", "Inflated from res/layout/unique_option_names_xml.xml — native RadioGroups with duplicate labels (violations), unique labels, and same labels in separate groups (passes).") {
+                AndroidView(
+                    factory = { ctx -> android.view.View.inflate(ctx, R.layout.unique_option_names_xml, null) },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
         ScrollArrows(scrollState = scrollState)

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TE-21951 Minimum Text Size — native XML variant.
+     android:textSize with a non-scalable unit (dp/px/pt) below 16dp fails.
+     sp text is scalable and is skipped by the rule. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <!-- Violations: non-SP text below 16dp -->
+    <TextView
+        android:id="@+id/xml_mts_v01"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingVertical="6dp"
+        android:text="XML V-01: 8dp text (DIP)"
+        android:textSize="8dp" />
+
+    <TextView
+        android:id="@+id/xml_mts_v02"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingVertical="6dp"
+        android:text="XML V-02: 10px text (PX)"
+        android:textSize="10px" />
+
+    <TextView
+        android:id="@+id/xml_mts_v03"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingVertical="6dp"
+        android:text="XML V-03: 12dp text (DIP)"
+        android:textSize="12dp" />
+
+    <TextView
+        android:id="@+id/xml_mts_v04"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingVertical="6dp"
+        android:text="XML V-04: 6pt text (PT)"
+        android:textSize="6pt" />
+
+    <!-- Passes: at/above threshold, or scalable sp -->
+    <TextView
+        android:id="@+id/xml_mts_p01"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingVertical="6dp"
+        android:text="XML P-01: 16dp text (DIP, at threshold)"
+        android:textSize="16dp" />
+
+    <TextView
+        android:id="@+id/xml_mts_p02"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingVertical="6dp"
+        android:text="XML P-02: 20dp text (DIP)"
+        android:textSize="20dp" />
+
+    <TextView
+        android:id="@+id/xml_mts_p03"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingVertical="6dp"
+        android:text="XML P-03: 10sp text (SP, skipped)"
+        android:textSize="10sp" />
+</LinearLayout>

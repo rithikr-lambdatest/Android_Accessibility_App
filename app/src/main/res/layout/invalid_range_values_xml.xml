@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TE-21951 Invalid Range Values — native XML variant.
+     RangeInfoSeekBar declares an arbitrary RangeInfo (min/max/current) via
+     app:range* attributes. Native SeekBar clamps values, so this custom view
+     is the reliable way to declare invalid ranges directly in XML.
+     FAIL when min >= max, or current outside [min, max]. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <!-- XML V-01: current > max -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML V-01: current &gt; max (0, 100, 150)"
+        android:textStyle="bold"
+        android:paddingTop="8dp" />
+
+    <com.example.qa_accessibility_app.RangeInfoSeekBar
+        android:id="@+id/xml_irv_v01"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:rangeMin="0"
+        app:rangeMax="100"
+        app:rangeCurrent="150"
+        app:rangeLabel="Volume" />
+
+    <!-- XML V-02: min > max (inverted) -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML V-02: min &gt; max (100, 50, 75)"
+        android:textStyle="bold"
+        android:paddingTop="16dp" />
+
+    <com.example.qa_accessibility_app.RangeInfoSeekBar
+        android:id="@+id/xml_irv_v02"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:rangeMin="100"
+        app:rangeMax="50"
+        app:rangeCurrent="75"
+        app:rangeLabel="Brightness" />
+
+    <!-- XML V-03: min == max -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML V-03: min == max (50, 50, 50)"
+        android:textStyle="bold"
+        android:paddingTop="16dp" />
+
+    <com.example.qa_accessibility_app.RangeInfoSeekBar
+        android:id="@+id/xml_irv_v03"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:rangeMin="50"
+        app:rangeMax="50"
+        app:rangeCurrent="50"
+        app:rangeLabel="Level" />
+
+    <!-- XML V-04: current < min -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML V-04: current &lt; min (0, 100, -10)"
+        android:textStyle="bold"
+        android:paddingTop="16dp" />
+
+    <com.example.qa_accessibility_app.RangeInfoSeekBar
+        android:id="@+id/xml_irv_v04"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:rangeMin="0"
+        app:rangeMax="100"
+        app:rangeCurrent="-10"
+        app:rangeLabel="Progress" />
+
+    <!-- XML P-01: valid range -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML P-01: valid (0, 100, 50)"
+        android:textStyle="bold"
+        android:paddingTop="16dp" />
+
+    <com.example.qa_accessibility_app.RangeInfoSeekBar
+        android:id="@+id/xml_irv_p01"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:rangeMin="0"
+        app:rangeMax="100"
+        app:rangeCurrent="50"
+        app:rangeLabel="Volume" />
+
+    <!-- XML P-02: native SeekBar — auto-clamps, valid RangeInfo -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML P-02: Native SeekBar (auto-valid)"
+        android:textStyle="bold"
+        android:paddingTop="16dp" />
+
+    <SeekBar
+        android:id="@+id/xml_irv_p02"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="100"
+        android:progress="50"
+        android:contentDescription="Brightness" />
+</LinearLayout>
