@@ -4001,6 +4001,8 @@ fun LabelInNameScreen(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text("Mismatched Label Text", style = MaterialTheme.typography.headlineSmall)
+            Text("WCAG 2.5.3 (A), Serious. Accessible name must contain the visible label (whole-word, case/punctuation-ignored). Exempt: symbolic, single-char, or numeric-only labels.",
+                style = MaterialTheme.typography.bodySmall)
 
             // ---------- VIOLATIONS ----------
             RuleCard(
@@ -4173,6 +4175,8 @@ fun LabelAtFrontScreen(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text("Misplaced Field Label", style = MaterialTheme.typography.headlineSmall)
+            Text("WCAG 2.5.3 Best Practice, Moderate. Accessible name should START with the visible label (whole-word prefix, case-normalized). Containment misses go to MismatchedLabelText.",
+                style = MaterialTheme.typography.bodySmall)
 
             // ---------- VIOLATIONS ----------
             RuleCard(
@@ -4311,6 +4315,8 @@ fun KeyboardFocusScreen(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text("Non-Focusable Interactive Element", style = MaterialTheme.typography.headlineSmall)
+            Text("WCAG 2.1.1 (A), Serious. Every clickable / long-clickable / checkable control must be keyboard-focusable. Delegation counts only if the ancestor/descendant is BOTH focusable AND interactive.",
+                style = MaterialTheme.typography.bodySmall)
 
             // ---------- VIOLATIONS ----------
             RuleCard(
@@ -4606,10 +4612,16 @@ fun TextSpacingScreen(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             val screenTitle = "Text Spacing"
+            val screenDescription = "WCAG 1.4.12 (AA). AAE floors: line ≥ 0.9× font, word ≥ 0.16× font, paragraph ≥ 2.0× line-pitch. BrowserStack: line ≥ 1.5×, paragraph over font-size. V-06 (1.2× line) passes AAE, fails BrowserStack."
             Text(
                 screenTitle,
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.clearAndSetSemantics { contentDescription = screenTitle }
+            )
+            Text(
+                screenDescription,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.clearAndSetSemantics { contentDescription = screenDescription }
             )
 
             // ---------- VIOLATIONS ----------
