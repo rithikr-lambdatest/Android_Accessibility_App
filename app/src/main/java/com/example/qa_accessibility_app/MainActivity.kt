@@ -4714,7 +4714,7 @@ fun TextSpacingScreen(modifier: Modifier = Modifier) {
             }
             TextSpacingRuleCard(
                 "V-07: XML declarative variants (inflated from res/layout/text_spacing_xml.xml)",
-                "Three XML violations (android:lineSpacingMultiplier=0.6, android:letterSpacing=-0.15, jammed sibling TextViews) plus XML passes (comfortable line height, positive letter spacing, paragraphs separated by an android.widget.Space). Why: developers set these via layout XML more often than via code — the rule catches declarative violations the same way, using the SAME captured char-geometry pipeline."
+                "Three XML violations (android:lineSpacingMultiplier=0.6, android:letterSpacing=-0.15, jammed sibling TextViews) plus XML passes (comfortable line height, positive letter spacing, paragraphs separated by an empty-text View spacer). Why: developers set these via layout XML more often than via code — the rule catches declarative violations the same way, using the SAME captured char-geometry pipeline."
             ) {
                 AndroidView(
                     factory = { ctx -> android.view.View.inflate(ctx, R.layout.text_spacing_xml, null) },
@@ -4868,11 +4868,12 @@ fun TextSpacingScreen(modifier: Modifier = Modifier) {
             }
 
             // ---------- PASSES ----------
-            TextSpacingRuleCard("P-01: comfortable line height (1.4× multiplier)", "16sp text, lineSpacingMultiplier=1.4 → computed lineRatio ≈ 1.68 — well above AAE's 0.9× floor. Wrapper LinearLayout is explicitly important-for-accessibility, so paragraph sub-check finds no preceding sibling → ratioAbsent → N/A.") {
+            TextSpacingRuleCard("P-01: comfortable line height (1.4× multiplier)", "16sp text, lineSpacingMultiplier=1.4 → computed lineRatio ≈ 1.68 — well above AAE's 0.9× floor. letterSpacing=0.05em pushes space-advance to ~0.18× on typefaces with narrower native space glyphs (Huawei/EMUI) so the word floor is cleared with margin. Wrapper LinearLayout is explicitly important-for-accessibility, so paragraph sub-check finds no preceding sibling → ratioAbsent → N/A.") {
                 NativeSpacedText(
                     text = "Comfortable line height gives dense body text room to breathe for low-vision readers.",
                     sizeSp = 16f,
                     lineSpacingMultiplier = 1.4f,
+                    letterSpacingEm = 0.05f,
                     modifier = Modifier.fillMaxWidth()
                 )
             }

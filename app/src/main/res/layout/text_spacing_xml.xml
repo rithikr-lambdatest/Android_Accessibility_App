@@ -9,7 +9,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="8dp">
+    android:padding="8dp"
+    android:importantForAccessibility="yes">
 
     <TextView
         android:layout_width="wrap_content"
@@ -21,9 +22,10 @@
     <!-- Empty-text sibling: breaks the paragraph-rule's backward sibling scan
          so the content TextView below doesn't false-positive against the
          (multi-line) title label above. -->
-    <Space
+    <View
         android:layout_width="match_parent"
-        android:layout_height="2dp" />
+        android:layout_height="2dp"
+        android:importantForAccessibility="yes" />
 
     <TextView
         android:id="@+id/xml_ts_v01"
@@ -42,9 +44,10 @@
         android:paddingBottom="4dp" />
 
     <!-- Empty-text sibling breaks the paragraph-rule sibling scan. -->
-    <Space
+    <View
         android:layout_width="match_parent"
-        android:layout_height="2dp" />
+        android:layout_height="2dp"
+        android:importantForAccessibility="yes" />
 
     <TextView
         android:id="@+id/xml_ts_v02"
@@ -63,9 +66,10 @@
         android:paddingBottom="4dp" />
 
     <!-- Empty-text sibling breaks the paragraph-rule sibling scan. -->
-    <Space
+    <View
         android:layout_width="match_parent"
-        android:layout_height="2dp" />
+        android:layout_height="2dp"
+        android:importantForAccessibility="yes" />
 
     <!-- Two multi-line TextViews as strictly-consecutive siblings under the
          SAME LinearLayout parent, with zero spacing between them — the
@@ -95,9 +99,10 @@
         android:paddingBottom="4dp" />
 
     <!-- Empty-text sibling breaks the paragraph-rule sibling scan. -->
-    <Space
+    <View
         android:layout_width="match_parent"
-        android:layout_height="2dp" />
+        android:layout_height="2dp"
+        android:importantForAccessibility="yes" />
 
     <TextView
         android:id="@+id/xml_ts_p01"
@@ -105,6 +110,7 @@
         android:layout_height="wrap_content"
         android:textSize="16sp"
         android:lineSpacingMultiplier="1.4"
+        android:letterSpacing="0.05"
         android:text="Comfortable line height gives dense body text room to breathe for low-vision readers and cognitive-load users." />
 
     <TextView
@@ -116,9 +122,10 @@
         android:paddingBottom="4dp" />
 
     <!-- Empty-text sibling breaks the paragraph-rule sibling scan. -->
-    <Space
+    <View
         android:layout_width="match_parent"
-        android:layout_height="2dp" />
+        android:layout_height="2dp"
+        android:importantForAccessibility="yes" />
 
     <TextView
         android:id="@+id/xml_ts_p02"
@@ -131,15 +138,16 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="XML P-03: paragraphs separated by a Space (paragraph rule N/A)"
+        android:text="XML P-03: paragraphs separated by a View spacer (paragraph rule N/A)"
         android:textStyle="bold"
         android:paddingTop="12dp"
         android:paddingBottom="4dp" />
 
     <!-- Empty-text sibling breaks the paragraph-rule sibling scan. -->
-    <Space
+    <View
         android:layout_width="match_parent"
-        android:layout_height="2dp" />
+        android:layout_height="2dp"
+        android:importantForAccessibility="yes" />
 
     <TextView
         android:id="@+id/xml_ts_p03_first"
@@ -147,13 +155,17 @@
         android:layout_height="wrap_content"
         android:textSize="16sp"
         android:lineSpacingMultiplier="1.3"
+        android:letterSpacing="0.05"
         android:text="First paragraph, long enough to occupy two full rendered lines for the scanner to compute a pitch." />
 
-    <!-- android.widget.Space is a visible empty-text sibling in the a11y tree.
-         The rule returns ratioAbsent for paragraph, so the sub-check is N/A. -->
-    <Space
+    <!-- View (not Space — Space nodes are dropped from the a11y tree even when
+         marked important) with importantForAccessibility=yes appears as an
+         empty-text sibling in the a11y tree. The rule returns ratioAbsent for
+         paragraph, so the sub-check is N/A. -->
+    <View
         android:layout_width="match_parent"
-        android:layout_height="64dp" />
+        android:layout_height="64dp"
+        android:importantForAccessibility="yes" />
 
     <TextView
         android:id="@+id/xml_ts_p03_second"
@@ -161,5 +173,6 @@
         android:layout_height="wrap_content"
         android:textSize="16sp"
         android:lineSpacingMultiplier="1.3"
-        android:text="Second paragraph, separated cleanly from the previous one by an empty-text Space sibling." />
+        android:letterSpacing="0.05"
+        android:text="Second paragraph, separated cleanly from the previous one by an empty-text View sibling." />
 </LinearLayout>
