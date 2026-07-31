@@ -4001,7 +4001,7 @@ fun LabelInNameScreen(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text("Mismatched Label Text", style = MaterialTheme.typography.headlineSmall)
-            Text("WCAG 2.5.3 (A), Serious. Corresponds to W3C failure F96 (accessible name does not contain the visible label text). AAE adds ACT-normalized whole-word matching (so 'Add' does not match inside 'Address'); case and punctuation are ignored. Exempt: symbolic-only, single-character, and numeric-only labels. Scanner scope: BrowserStack and Deque axe-mobile ship this; Google ATF does not (verified against source).",
+            Text("WCAG 2.5.3 (A), Serious. Accessible name must contain the visible label (whole-word, case/punctuation-ignored). Exempt: symbolic, single-char, or numeric-only labels.",
                 style = MaterialTheme.typography.bodySmall)
 
             // ---------- VIOLATIONS ----------
@@ -4175,7 +4175,7 @@ fun LabelAtFrontScreen(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text("Misplaced Field Label", style = MaterialTheme.typography.headlineSmall)
-            Text("Best-Practice rule associated with WCAG 2.5.3. The W3C Understanding document lists 'accessible name contains the visible label text, but words appear before it' as a POTENTIAL FUTURE TECHNIQUE — not a normative F-number failure (only F96 and F111 are normative for 2.5.3). Shipped as a distinct scanner rule: BrowserStack lists 'Label at Front' (Minor / Best Practice); AAE ships MisplacedFieldLabel (Moderate). Case is normalized; whole-word prefix required. Containment misses belong to MismatchedLabelText — the two never fire on the same node.",
+            Text("WCAG 2.5.3 Best Practice, Moderate. Accessible name should START with the visible label (whole-word prefix, case-normalized). Containment misses go to MismatchedLabelText.",
                 style = MaterialTheme.typography.bodySmall)
 
             // ---------- VIOLATIONS ----------
@@ -4315,9 +4315,7 @@ fun KeyboardFocusScreen(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text("Non-Focusable Interactive Element", style = MaterialTheme.typography.headlineSmall)
-            Text("WCAG 2.1.1 (A), Serious. Every clickable / long-clickable / checkable control must be reachable by keyboard focus. AAE IsApplicable = Displayed + Enabled + IsInteractive. Delegation only counts if the ancestor / descendant is BOTH Focusable AND IsInteractive — a focus-only wrapper does not save the child.\n\n" +
-                "Detection reality check: AOSP UIAutomator dump does NOT emit an importantForAccessibility attribute (verified against AOSP AccessibilityNodeInfoDumper source). Instead, the resolved isImportantForAccessibility() controls whether the node appears in the tree at all — for a clickable View that resolves to true even from AUTO. So the effective detection is 'node PRESENT in a11y tree + clickable=true + focusable=false'. We still set importantForAccessibility=YES explicitly on V-cases as a belt-and-braces to guarantee tree presence.\n\n" +
-                "Scanner-scope: Google ATF and Deque axe-mobile ship NO rule for this (verified against Google's AccessibilityCheckPreset source and Deque's AxeConf.java). BrowserStack ships it. So only BrowserStack-style scanners (including AAE) will flag these — silence from Accessibility Scanner is expected.",
+            Text("WCAG 2.1.1 (A), Serious. Every clickable / long-clickable / checkable control must be keyboard-focusable. Delegation counts only if the ancestor/descendant is BOTH focusable AND interactive.",
                 style = MaterialTheme.typography.bodySmall)
 
             // ---------- VIOLATIONS ----------
@@ -4614,21 +4612,7 @@ fun TextSpacingScreen(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             val screenTitle = "Text Spacing"
-            val screenDescription = "WCAG 1.4.12 (AA). Two different threshold formulations exist in the wild — different scanners implement different ones:\n\n" +
-                "AAE (this codebase, per source code):\n" +
-                "  line ratio = pitch / fontSize ≥ 0.9\n" +
-                "  word ratio = spaceAdvance / fontSize ≥ 0.16\n" +
-                "  paragraph ratio = gap / LINE-PITCH ≥ 2.0   ← denominator is line pitch, not font\n" +
-                "  Text-length gate: MAE captures geometry only for text ≥ 20 chars trimmed.\n" +
-                "  Rationale in the AAE source: WCAG's 1.5× line floor would flag every default TextView.\n\n" +
-                "BrowserStack App Accessibility (per their public rule docs):\n" +
-                "  line ratio ≥ 1.5\n" +
-                "  word ratio ≥ 0.16\n" +
-                "  paragraph ratio = gap / FONT-SIZE ≥ 2.0   ← denominator is font size, not line pitch\n" +
-                "  Letter-spacing: checked but no numeric threshold published.\n" +
-                "  Text-length gate: not documented.\n\n" +
-                "Google ATF (Accessibility Scanner engine) and Deque axe-mobile ship NO text-spacing rule at all — running them alongside as a cross-check will produce silence, not agreement.\n\n" +
-                "V-06 (default 1.2× line spacing) is the discriminator: passes AAE, fails BrowserStack."
+            val screenDescription = "WCAG 1.4.12 (AA). AAE floors: line ≥ 0.9× font, word ≥ 0.16× font, paragraph ≥ 2.0× line-pitch. BrowserStack: line ≥ 1.5×, paragraph over font-size. V-06 (1.2× line) passes AAE, fails BrowserStack."
             Text(
                 screenTitle,
                 style = MaterialTheme.typography.headlineSmall,
