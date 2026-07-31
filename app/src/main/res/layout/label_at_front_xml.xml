@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TE-21959 MisplacedFieldLabel (Label at Front, Best Practice) — XML variants.
+     Rule fires when the accessible name CONTAINS the visible label but the
+     label is NOT at the start (ACT-normalized, whole-word prefix). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML V-01: cd = 'Ready to Send message' (Send buried mid-string)"
+        android:textStyle="bold"
+        android:paddingBottom="4dp" />
+
+    <Button
+        android:id="@+id/xml_laf_v01"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Send"
+        android:contentDescription="Ready to Send message" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML V-02: cd = 'Please Cancel to abort' (Cancel not at front)"
+        android:textStyle="bold"
+        android:paddingTop="12dp"
+        android:paddingBottom="4dp" />
+
+    <Button
+        android:id="@+id/xml_laf_v02"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Cancel"
+        android:contentDescription="Please Cancel to abort" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML V-03: cd = 'Tap here to Submit form' (Submit at end)"
+        android:textStyle="bold"
+        android:paddingTop="12dp"
+        android:paddingBottom="4dp" />
+
+    <Button
+        android:id="@+id/xml_laf_v03"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Submit"
+        android:contentDescription="Tap here to Submit form" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML P-01: cd = 'Save changes to draft' (Save at front)"
+        android:textStyle="bold"
+        android:paddingTop="12dp"
+        android:paddingBottom="4dp" />
+
+    <Button
+        android:id="@+id/xml_laf_p01"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Save"
+        android:contentDescription="Save changes to draft" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML P-02: cd = 'Reset' (exact match)"
+        android:textStyle="bold"
+        android:paddingTop="12dp"
+        android:paddingBottom="4dp" />
+
+    <Button
+        android:id="@+id/xml_laf_p02"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Reset"
+        android:contentDescription="Reset" />
+</LinearLayout>

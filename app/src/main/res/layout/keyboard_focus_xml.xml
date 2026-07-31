@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TE-21959 NonFocusableInteractiveElement (Keyboard Focus, WCAG 2.1.1 A) —
+     XML variants. Rule fires when an interactive element (clickable /
+     long-clickable / checkable) is NOT focusable AND has no focusable+clickable
+     ancestor or descendant to delegate for it. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML V-01: clickable TextView with focusable=false"
+        android:textStyle="bold"
+        android:paddingBottom="4dp" />
+
+    <TextView
+        android:id="@+id/xml_kbf_v01"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clickable="true"
+        android:focusable="false"
+        android:importantForAccessibility="yes"
+        android:padding="16dp"
+        android:background="#6650A4"
+        android:textColor="#FFFFFF"
+        android:text="Buy now" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML V-02: clickable LinearLayout container with focusable=false"
+        android:textStyle="bold"
+        android:paddingTop="12dp"
+        android:paddingBottom="4dp" />
+
+    <LinearLayout
+        android:id="@+id/xml_kbf_v02"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clickable="true"
+        android:focusable="false"
+        android:importantForAccessibility="yes"
+        android:padding="16dp"
+        android:background="#B3261E"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:text="Add to cart" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML V-03: focusable-only wrapper does NOT delegate for inner clickable"
+        android:textStyle="bold"
+        android:paddingTop="12dp"
+        android:paddingBottom="4dp" />
+
+    <!-- Outer FrameLayout is focusable but NOT clickable, so it cannot activate
+         the inner control — rule fires on the inner TextView. -->
+    <FrameLayout
+        android:id="@+id/xml_kbf_v03_wrapper"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:focusable="true"
+        android:clickable="false"
+        android:padding="4dp">
+
+        <TextView
+            android:id="@+id/xml_kbf_v03_inner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clickable="true"
+            android:focusable="false"
+            android:importantForAccessibility="yes"
+            android:padding="16dp"
+            android:background="#B3261E"
+            android:textColor="#FFFFFF"
+            android:text="Wrapped, still unreachable" />
+    </FrameLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML P-01: Button (inherently focusable + clickable)"
+        android:textStyle="bold"
+        android:paddingTop="12dp"
+        android:paddingBottom="4dp" />
+
+    <Button
+        android:id="@+id/xml_kbf_p01"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Confirm" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML P-02: clickable AND focusable=true (reachable)"
+        android:textStyle="bold"
+        android:paddingTop="12dp"
+        android:paddingBottom="4dp" />
+
+    <TextView
+        android:id="@+id/xml_kbf_p02"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clickable="true"
+        android:focusable="true"
+        android:padding="16dp"
+        android:background="#6650A4"
+        android:textColor="#FFFFFF"
+        android:text="Reachable action" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML P-03: focusable+clickable ancestor delegates for child"
+        android:textStyle="bold"
+        android:paddingTop="12dp"
+        android:paddingBottom="4dp" />
+
+    <!-- Outer row is BOTH clickable AND focusable, so it covers the inner
+         clickable-not-focusable TextView via ancestor delegation. -->
+    <LinearLayout
+        android:id="@+id/xml_kbf_p03_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clickable="true"
+        android:focusable="true"
+        android:padding="16dp"
+        android:background="#625B71"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/xml_kbf_p03_inner"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:clickable="true"
+            android:focusable="false"
+            android:textColor="#FFFFFF"
+            android:text="Row content" />
+    </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TE-21959 TextSpacing (WCAG 1.4.12 AA) — XML variants.
+     Rule uses MAE-captured char geometry. MCAG SC 3.3.1 thresholds:
+       line height   >= 0.9x font size
+       word spacing  >= 0.16x font size
+       paragraph gap >= 2.0x line pitch (consecutive multi-line siblings)
+     MAE only captures geometry for text >= 20 chars (trimmed). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp"
+    android:importantForAccessibility="yes">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML V-01: android:lineSpacingMultiplier=&quot;0.6&quot; (crushed line height)"
+        android:textStyle="bold"
+        android:paddingBottom="4dp" />
+
+    <!-- Empty-text sibling: breaks the paragraph-rule's backward sibling scan
+         so the content TextView below doesn't false-positive against the
+         (multi-line) title label above. -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:importantForAccessibility="yes" />
+
+    <TextView
+        android:id="@+id/xml_ts_v01"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:lineSpacingMultiplier="0.6"
+        android:text="Line height is crushed by the 0.6x multiplier here so ascenders and descenders start to bleed into the adjacent lines, well below the 0.9x floor." />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML V-02: android:letterSpacing=&quot;-0.15&quot; (crushed word gaps)"
+        android:textStyle="bold"
+        android:paddingTop="12dp"
+        android:paddingBottom="4dp" />
+
+    <!-- Empty-text sibling breaks the paragraph-rule sibling scan. -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:importantForAccessibility="yes" />
+
+    <TextView
+        android:id="@+id/xml_ts_v02"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="18sp"
+        android:letterSpacing="-0.15"
+        android:text="Word spacing collapses when negative tracking pushes the space glyph advance below the 0.16x font-size threshold." />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML V-03: strictly-consecutive TextView siblings (paragraph gap = 0)"
+        android:textStyle="bold"
+        android:paddingTop="12dp"
+        android:paddingBottom="4dp" />
+
+    <!-- Empty-text sibling breaks the paragraph-rule sibling scan. -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:importantForAccessibility="yes" />
+
+    <!-- Two multi-line TextViews as strictly-consecutive siblings under the
+         SAME LinearLayout parent, with zero spacing between them — the
+         paragraph-gap sub-check flags on the LOWER paragraph. -->
+    <TextView
+        android:id="@+id/xml_ts_v03_first"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:lineSpacingMultiplier="1.0"
+        android:text="First paragraph spans multiple lines so the scanner can compute a line pitch to compare against for the paragraph rule downstream." />
+
+    <TextView
+        android:id="@+id/xml_ts_v03_second"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:lineSpacingMultiplier="1.0"
+        android:text="Second paragraph starts immediately, with zero visual separation from the previous paragraph — paragraph rule fires here." />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML P-01: android:lineSpacingMultiplier=&quot;1.4&quot; (comfortable line height)"
+        android:textStyle="bold"
+        android:paddingTop="12dp"
+        android:paddingBottom="4dp" />
+
+    <!-- Empty-text sibling breaks the paragraph-rule sibling scan. -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:importantForAccessibility="yes" />
+
+    <TextView
+        android:id="@+id/xml_ts_p01"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:lineSpacingMultiplier="1.4"
+        android:letterSpacing="0.05"
+        android:text="Comfortable line height gives dense body text room to breathe for low-vision readers and cognitive-load users." />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML P-02: android:letterSpacing=&quot;0.05&quot; (loose word gaps)"
+        android:textStyle="bold"
+        android:paddingTop="12dp"
+        android:paddingBottom="4dp" />
+
+    <!-- Empty-text sibling breaks the paragraph-rule sibling scan. -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:importantForAccessibility="yes" />
+
+    <TextView
+        android:id="@+id/xml_ts_p02"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="18sp"
+        android:letterSpacing="0.05"
+        android:text="Loose letter spacing preserves clear word boundaries for readers with cognitive disabilities." />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="XML P-03: paragraphs separated by a View spacer (paragraph rule N/A)"
+        android:textStyle="bold"
+        android:paddingTop="12dp"
+        android:paddingBottom="4dp" />
+
+    <!-- Empty-text sibling breaks the paragraph-rule sibling scan. -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:importantForAccessibility="yes" />
+
+    <TextView
+        android:id="@+id/xml_ts_p03_first"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:lineSpacingMultiplier="1.3"
+        android:letterSpacing="0.05"
+        android:text="First paragraph, long enough to occupy two full rendered lines for the scanner to compute a pitch." />
+
+    <!-- View (not Space — Space nodes are dropped from the a11y tree even when
+         marked important) with importantForAccessibility=yes appears as an
+         empty-text sibling in the a11y tree. The rule returns ratioAbsent for
+         paragraph, so the sub-check is N/A. -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:importantForAccessibility="yes" />
+
+    <TextView
+        android:id="@+id/xml_ts_p03_second"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:lineSpacingMultiplier="1.3"
+        android:letterSpacing="0.05"
+        android:text="Second paragraph, separated cleanly from the previous one by an empty-text View sibling." />
+</LinearLayout>
