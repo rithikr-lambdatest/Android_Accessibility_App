@@ -20,6 +20,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -78,6 +79,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -256,6 +258,10 @@ fun QA_Accessibility_AppApp() {
                     AppDestinations.MINIMUM_TEXT_SIZE -> MinimumTextSizeScreen()
                     AppDestinations.INVALID_RANGE_VALUES -> InvalidRangeValuesScreen()
                     AppDestinations.UNIQUE_OPTION_NAMES -> UniqueOptionNamesScreen()
+                    AppDestinations.LABEL_AT_FRONT -> LabelAtFrontScreen()
+                    AppDestinations.KEYBOARD_FOCUS -> KeyboardFocusScreen()
+                    AppDestinations.LABEL_IN_NAME -> LabelInNameScreen()
+                    AppDestinations.TEXT_SPACING -> TextSpacingScreen()
                     null -> {}
                 }
                 }
@@ -292,6 +298,10 @@ enum class AppDestinations(
     MINIMUM_TEXT_SIZE("Minimum Text Size", Icons.Default.Build),
     INVALID_RANGE_VALUES("Invalid Range Values", Icons.Default.Build),
     UNIQUE_OPTION_NAMES("Unique Option Names", Icons.Default.Build),
+    LABEL_AT_FRONT("Misplaced Field Label", Icons.Default.Build),
+    KEYBOARD_FOCUS("Non-Focusable Interactive Element", Icons.Default.Build),
+    LABEL_IN_NAME("Mismatched Label Text", Icons.Default.Build),
+    TEXT_SPACING("Text Spacing", Icons.Default.Build),
 }
 
 @Composable
@@ -3806,4 +3816,1108 @@ fun UniqueOptionNamesScreen(modifier: Modifier = Modifier) {
 @Composable
 fun UniqueOptionNamesScreenPreview() {
     QA_Accessibility_AppTheme { UniqueOptionNamesScreen() }
+}
+
+// =====================================================================
+// TE-21959 — four new rule screens (Label in Name, Label at Front,
+// Keyboard Focus, Text Spacing)
+// =====================================================================
+
+// Native clickable View whose focusable flag can be set explicitly.
+// Compose's Modifier.clickable() also flips focusable=true, so violations
+// for NonFocusableInteractiveElement need the flag set here at the View level.
+// importantForAccessibility is set to YES explicitly to guarantee the node
+// APPEARS in the a11y tree — the standard UIAutomator dump doesn't actually
+// print this attribute, but the resolved isImportantForAccessibility()
+// controls tree presence, which the effective detection depends on.
+@Composable
+private fun NativeClickableView(
+    label: String,
+    focusable: Boolean,
+    modifier: Modifier = Modifier
+) {
+    AndroidView(
+        factory = { ctx ->
+            android.widget.TextView(ctx).apply {
+                text = label
+                setPadding(32, 24, 32, 24)
+                setBackgroundColor(0xFF6650A4.toInt())
+                setTextColor(0xFFFFFFFF.toInt())
+                isClickable = true
+                isFocusable = focusable
+                importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_YES
+                setOnClickListener { }
+            }
+        },
+        modifier = modifier
+    )
+}
+
+// Native TextView that lets us dial per-line and per-letter spacing to below
+// the TextSpacing thresholds (Compose Text applies system-wide sensible
+// defaults that make the rule hard to trip).
+@Composable
+private fun NativeSpacedText(
+    text: String,
+    sizeSp: Float,
+    lineSpacingMultiplier: Float = 1.2f,
+    lineSpacingExtraDp: Int = 0,
+    letterSpacingEm: Float = 0f,
+    modifier: Modifier = Modifier
+) {
+    // Wrapper LinearLayout with a leading android.widget.Space child that
+    // ALWAYS appears in the a11y tree (native View with bounds). This breaks
+    // the paragraph rule's backward-sibling scan two ways:
+    //   - if the wrapper LinearLayout appears in the a11y tree, TextView's
+    //     parent is the LinearLayout and Space is TextView's preceding sibling
+    //     inside it → empty-text sibling → rule returns ratioAbsent.
+    //   - if the wrapper collapses, Space and TextView both flatten into
+    //     RuleCard's Column. Space sits BETWEEN the subtitle Text and the
+    //     TextView → still empty-text preceding sibling → still ratioAbsent.
+    AndroidView(
+        factory = { ctx ->
+            android.widget.LinearLayout(ctx).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                layoutParams = android.view.ViewGroup.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+                // DO NOT set contentDescription on this ViewGroup — that would
+                // cause Android to absorb the child TextView into a single
+                // accessibility node, making the TextView invisible to MAE's
+                // refreshWithExtraData call → no char-tops → rule silently
+                // passes even when spacing is genuinely crushed.
+                importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_YES
+                // Leading Space guarantees an empty-text preceding sibling for
+                // the TextView so the paragraph rule bails out with ratioAbsent
+                // (even if this wrapper collapses in the tree).
+                addView(
+                    android.widget.Space(ctx).apply {
+                        layoutParams = android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                            1
+                        )
+                    }
+                )
+                addView(
+                    android.widget.TextView(ctx).apply {
+                        layoutParams = android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                    }
+                )
+            }
+        },
+        update = { root ->
+            // Children: [0]=Space, [1]=TextView
+            val tv = root.getChildAt(1) as android.widget.TextView
+            tv.text = text
+            tv.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, sizeSp)
+            val extraPx = lineSpacingExtraDp * root.resources.displayMetrics.density
+            tv.setLineSpacing(extraPx, lineSpacingMultiplier)
+            tv.letterSpacing = letterSpacingEm
+        },
+        modifier = modifier
+    )
+}
+
+// Two TextViews under a single LinearLayout so they are strictly consecutive
+// siblings under the same parent in the a11y XML dump — the shape the
+// TextSpacing paragraph-gap rule needs. `spacerHeightDp = 0` puts them
+// directly adjacent (paragraph FAIL); a positive value inserts an
+// android.widget.Space between them (rule returns N/A on the paragraph
+// sub-check, so only line/word spacing determine the verdict).
+@Composable
+private fun NativeParagraphPair(
+    firstText: String,
+    secondText: String,
+    sizeSp: Float = 16f,
+    lineSpacingMultiplier: Float = 1.2f,
+    spacerHeightDp: Int = 0,
+    modifier: Modifier = Modifier
+) {
+    val density = LocalDensity.current
+    val spacerPx = with(density) { spacerHeightDp.dp.roundToPx() }
+    AndroidView(
+        modifier = modifier,
+        factory = { ctx ->
+            android.widget.LinearLayout(ctx).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                // No contentDescription — that would absorb the child TextViews
+                // and hide them from MAE's geometry capture.
+                importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_YES
+                // Leading Space isolates the FIRST paragraph from the RuleCard
+                // subtitle even if this LinearLayout collapses in the a11y tree.
+                // Paragraph pairing between the two internal TextViews is not
+                // affected because this Space sits BEFORE the first paragraph,
+                // not between them.
+                addView(android.widget.Space(ctx).apply {
+                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        1
+                    )
+                })
+                fun makeText(txt: String) = android.widget.TextView(ctx).apply {
+                    text = txt
+                    setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, sizeSp)
+                    setLineSpacing(0f, lineSpacingMultiplier)
+                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                }
+                addView(makeText(firstText))
+                if (spacerPx > 0) {
+                    addView(android.widget.Space(ctx).apply {
+                        layoutParams = android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                            spacerPx
+                        )
+                    })
+                }
+                addView(makeText(secondText))
+            }
+        }
+    )
+}
+
+// ---------------------------------------------------------------------
+// LABEL IN NAME — MismatchedLabelText (WCAG 2.5.3 A, Serious)
+// contentDescription REPLACES visible text for TalkBack, so it must
+// contain the visible label (ACT-normalized whole-word containment).
+// Exempt: symbolic-only, single-character, or numeric-only labels.
+// ---------------------------------------------------------------------
+@Composable
+fun LabelInNameScreen(modifier: Modifier = Modifier) {
+    val scrollState = rememberScrollState()
+    Column(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(scrollState).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Mismatched Label Text", style = MaterialTheme.typography.headlineSmall)
+            Text("WCAG 2.5.3 (A), Serious. Corresponds to W3C failure F96 (accessible name does not contain the visible label text). AAE adds ACT-normalized whole-word matching (so 'Add' does not match inside 'Address'); case and punctuation are ignored. Exempt: symbolic-only, single-character, and numeric-only labels. Scanner scope: BrowserStack and Deque axe-mobile ship this; Google ATF does not (verified against source).",
+                style = MaterialTheme.typography.bodySmall)
+
+            // ---------- VIOLATIONS ----------
+            RuleCard(
+                "V-01: Compose Button — unrelated cd (Submit / Send)",
+                "Compose Button. Child Text's cd='Send' overrides the visible label on the merged node. Why: TalkBack announces 'Send', so a voice-control user saying the visible 'Submit' cannot activate this button — the spoken name doesn't match what they see."
+            ) {
+                Button(onClick = {}) {
+                    Text("Submit", modifier = Modifier.semantics { contentDescription = "Send" })
+                }
+            }
+            RuleCard(
+                "V-02: partial-word match (Add / Address book)",
+                "Visible 'Add', child Text cd='Address book'. Why: 'Add' appears as a substring inside 'Address' but not as a whole word — voice-control matchers walk word boundaries, so the user's spoken 'Add' never lands on this control."
+            ) {
+                Button(onClick = {}) {
+                    Text("Add", modifier = Modifier.semantics { contentDescription = "Address book" })
+                }
+            }
+            RuleCard(
+                "V-03: Compose container (Checkout / Proceed to payment)",
+                "Clickable Row wrapping a Text('Checkout') whose semantics override the label to 'Proceed to payment'. Why: the visible action word is completely omitted from the spoken name — a screen-reader user hears one thing while a sighted colleague reads another, and voice-users can't guess the internal wording."
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .clickable(role = Role.Button) {}
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        "Checkout",
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.semantics { contentDescription = "Proceed to payment" }
+                    )
+                }
+            }
+            RuleCard(
+                "V-04: native android.widget.Button — opposite meaning (Sign in / Log out)",
+                "Native Button, android:text='Sign in', contentDescription='Log out'. Why: label and action are opposites; a voice command based on the visible label triggers behaviour the user did not intend — one of the highest-severity 2.5.3 failures."
+            ) {
+                AndroidView(
+                    factory = { ctx ->
+                        android.widget.Button(ctx).apply {
+                            text = "Sign in"
+                            contentDescription = "Log out"
+                        }
+                    }
+                )
+            }
+            RuleCard(
+                "V-05: cd is a truncation (Save changes / Save)",
+                "Native Button, text='Save changes', cd='Save'. Why: the visible label is longer than the accessible name — 'save changes' (two words) is not contained inside 'save' (one word); voice-users saying 'Save changes' cannot activate the button."
+            ) {
+                AndroidView(
+                    factory = { ctx ->
+                        android.widget.Button(ctx).apply {
+                            text = "Save changes"
+                            contentDescription = "Save"
+                        }
+                    }
+                )
+            }
+            RuleCard(
+                "V-06 (scanner miss): Modifier.clearAndSetSemantics { contentDescription = ... }",
+                "Compose Button with clearAndSetSemantics dropping the child Text and setting cd='Move to trash'. Real WCAG 2.5.3 harm — visible 'Delete' is unspoken and unmatchable by voice — BUT the AAE rule silently PASSES: with the child cleared, the merged node has text='' and no descendants, so VisibleLabelText() returns '' → IsApplicable is false. This card exists to expose that scanner blind spot. Detection requires OCR-vs-a11y-tree cross-referencing (like Google ATF's prerelease UnexposedTextCheck), not this rule."
+            ) {
+                Button(
+                    onClick = {},
+                    modifier = Modifier.clearAndSetSemantics { contentDescription = "Move to trash" }
+                ) { Text("Delete") }
+            }
+            RuleCard(
+                "V-07: icon + text button, cd names only the icon (★ Favorites / Star icon)",
+                "Compose Button with a leading ★ character and visible text 'Favorites'; cd on the inner Text='Star icon' — describes the glyph, not the action. Why: cd should describe the action, not the visual. Visible 'Favorites' isn't in the accessible name, so voice-command 'Favorites' fails; screen-reader users hear 'Star icon' with no hint of what tapping does."
+            ) {
+                Button(onClick = {}) {
+                    Text(
+                        "★ Favorites",
+                        modifier = Modifier.semantics { contentDescription = "Star icon" }
+                    )
+                }
+            }
+            RuleCard(
+                "V-08: card with 'Learn more' described as 'Read the full article' (thematic replacement)",
+                "Clickable Row rendering a link-style Text('Learn more') whose cd='Read the full article'. Why: the two labels are semantically related but share no whole word. A common editor pattern — writers 'improve' the accessible copy without checking it still contains the visible words the user might say."
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .clickable(role = Role.Button) {}
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        "Learn more",
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        textDecoration = TextDecoration.Underline,
+                        modifier = Modifier.semantics { contentDescription = "Read the full article" }
+                    )
+                }
+            }
+            RuleCard(
+                "V-09: XML declarative variants (inflated from res/layout/label_in_name_xml.xml)",
+                "Four native Buttons defined in XML with android:contentDescription. Includes V-XML-01 (unrelated), V-XML-02 (opposite), V-XML-03 (partial word), plus P-XML-01 (contained) and P-XML-02 (no cd, N/A). Why an XML variant matters: proves the rule catches the mismatch regardless of whether cd is set imperatively at runtime or declared in a layout XML."
+            ) {
+                AndroidView(
+                    factory = { ctx -> android.view.View.inflate(ctx, R.layout.label_in_name_xml, null) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            // ---------- PASSES ----------
+            RuleCard("P-01: label contained inside cd (Submit / Submit, opens settings)", "Visible 'Submit', cd='Submit, opens settings' — 'Submit' present as a whole word after normalization → PASS.") {
+                Button(onClick = {}) {
+                    Text("Submit", modifier = Modifier.semantics { contentDescription = "Submit, opens settings" })
+                }
+            }
+            RuleCard("P-02: case + punctuation normalized (Pay Now! / pay now, submits the order)", "NormalizeLabelText lowercases and replaces non-alphanumerics with spaces before comparison → PASS.") {
+                Button(onClick = {}) {
+                    Text("Pay Now!", modifier = Modifier.semantics { contentDescription = "pay now, submits the order" })
+                }
+            }
+            RuleCard("P-03: single-character label exempt (B / Bold)", "VisibleLabelText returns '' for labels shorter than 2 characters after normalization — rule not applicable.") {
+                Button(onClick = {}) {
+                    Text("B", modifier = Modifier.semantics { contentDescription = "Bold" })
+                }
+            }
+            RuleCard("P-04: symbolic label exempt (× / Close)", "VisibleLabelText returns '' when the visible text contains no letters — icon-glyph labels are exempt.") {
+                Button(onClick = {}) {
+                    Text("×", modifier = Modifier.semantics { contentDescription = "Close" })
+                }
+            }
+            RuleCard("P-05: numeric-only label exempt (42 / 42 unread notifications)", "Numeric-only labels contain no letters — VisibleLabelText returns '' and the rule silently skips the node.") {
+                Button(onClick = {}) {
+                    Text("42", modifier = Modifier.semantics { contentDescription = "42 unread notifications" })
+                }
+            }
+            RuleCard("P-06: no contentDescription — rule not applicable", "Native Button with text='Print' and no contentDescription set. IsApplicable requires cd != '' — rule silently skips.") {
+                AndroidView(
+                    factory = { ctx ->
+                        android.widget.Button(ctx).apply { text = "Print" }
+                    }
+                )
+            }
+        }
+        ScrollArrows(scrollState = scrollState)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun LabelInNameScreenPreview() {
+    QA_Accessibility_AppTheme { LabelInNameScreen() }
+}
+
+// ---------------------------------------------------------------------
+// LABEL AT FRONT — MisplacedFieldLabel (Best Practice, Moderate)
+// Once containment is confirmed, the accessible name should START with
+// the visible label. A containment miss belongs to MismatchedLabelText,
+// not this rule — the two never fire on the same node.
+// ---------------------------------------------------------------------
+@Composable
+fun LabelAtFrontScreen(modifier: Modifier = Modifier) {
+    val scrollState = rememberScrollState()
+    Column(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(scrollState).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Misplaced Field Label", style = MaterialTheme.typography.headlineSmall)
+            Text("Best-Practice rule associated with WCAG 2.5.3. The W3C Understanding document lists 'accessible name contains the visible label text, but words appear before it' as a POTENTIAL FUTURE TECHNIQUE — not a normative F-number failure (only F96 and F111 are normative for 2.5.3). Shipped as a distinct scanner rule: BrowserStack lists 'Label at Front' (Minor / Best Practice); AAE ships MisplacedFieldLabel (Moderate). Case is normalized; whole-word prefix required. Containment misses belong to MismatchedLabelText — the two never fire on the same node.",
+                style = MaterialTheme.typography.bodySmall)
+
+            // ---------- VIOLATIONS ----------
+            RuleCard(
+                "V-01: label in the middle (EN / Wikipedia EN language)",
+                "Compose Button, visible 'EN' via inner Text's cd='Wikipedia EN language'. Why: voice-control command recognisers front-anchor on the accessible name; 'EN' is contained but not at the head, so the user saying 'EN' cannot activate it — even though the label IS technically present."
+            ) {
+                Button(onClick = {}) {
+                    Text("EN", modifier = Modifier.semantics { contentDescription = "Wikipedia EN language" })
+                }
+            }
+            RuleCard(
+                "V-02: label at the end (Submit / Please submit the form now)",
+                "Visible 'Submit', cd='Please submit the form now'. Why: 'submit' buried after 'please' — voice-users typically say the button's visible label; front-anchored matchers won't reach a mid-string label reliably."
+            ) {
+                Button(onClick = {}) {
+                    Text("Submit", modifier = Modifier.semantics { contentDescription = "Please submit the form now" })
+                }
+            }
+            RuleCard(
+                "V-03: Compose container, label mid-string (Save / Quickly save your work)",
+                "Clickable Row wrapping a Text('Save') with cd='Quickly save your work'. Why: containers set descriptive prose as cd (\"quickly do X\") that reads well to TalkBack — but pushes the visible action word off the front, breaking voice-command activation."
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .clickable(role = Role.Button) {}
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        "Save",
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.semantics { contentDescription = "Quickly save your work" }
+                    )
+                }
+            }
+            RuleCard(
+                "V-04: native Button — polite-prefix cd (Cancel / Please Cancel to abort)",
+                "Native android.widget.Button, text='Cancel', cd='Please Cancel to abort'. Why: politeness prefixes ('Please', 'Tap to', 'Click to') are the most common front-of-cd anti-pattern — they front-shift the actual verb, silently breaking voice-command reach."
+            ) {
+                AndroidView(
+                    factory = { ctx ->
+                        android.widget.Button(ctx).apply {
+                            text = "Cancel"
+                            contentDescription = "Please Cancel to abort"
+                        }
+                    }
+                )
+            }
+            RuleCard(
+                "V-05: grouped view — role/value BEFORE label (Email / 'edit box containing john@example.com for email')",
+                "Clickable Row rendering visible 'Email' with a composed cd that puts role and value ahead of the label. Why: for grouped/form fields the announcement order matters — a screen-reader user scanning quickly needs the identifying WORD first ('Email address, john@example.com, edit box'), not the widget class. Reversed order buries the label, and voice-users trying to say 'Email' can't front-anchor."
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable(role = Role.Button) {}
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        "Email",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.semantics {
+                            contentDescription = "edit box containing john@example.com for email"
+                        }
+                    )
+                }
+            }
+            RuleCard(
+                "V-06: XML declarative variants (inflated from res/layout/label_at_front_xml.xml)",
+                "Five native Buttons defined in XML. V-XML-01/02/03 place the label mid-string, at the end, or buried. P-XML-01/02 show label-at-front and exact-match passes. Why an XML variant: designers often write cd copy directly in strings.xml / layout files — the rule catches those declarative violations the same as code-set ones."
+            ) {
+                AndroidView(
+                    factory = { ctx -> android.view.View.inflate(ctx, R.layout.label_at_front_xml, null) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            // ---------- PASSES ----------
+            RuleCard("P-01: label at the front (EN / EN Wikipedia language)", "Normalized cd starts with the visible label followed by a space → labelAtFront returns true → PASS.") {
+                Button(onClick = {}) {
+                    Text("EN", modifier = Modifier.semantics { contentDescription = "EN Wikipedia language" })
+                }
+            }
+            RuleCard("P-02: exact match (Submit / Submit)", "Normalized cd equals normalized visible label → PASS.") {
+                Button(onClick = {}) {
+                    Text("Submit", modifier = Modifier.semantics { contentDescription = "Submit" })
+                }
+            }
+            RuleCard("P-03: case difference at front (Pay Now / pay now and finish checkout)", "NormalizeLabelText lowercases both sides; prefix check runs on normalized text → PASS.") {
+                Button(onClick = {}) {
+                    Text("Pay Now", modifier = Modifier.semantics { contentDescription = "pay now and finish checkout" })
+                }
+            }
+            RuleCard("P-04: label absent — this rule stays silent (EN / Wikipedia language)", "LabelContains returns false (no containment), so MisplacedFieldLabel PASSES silently. MismatchedLabelText will FLAG this node instead — that's the intended two-rule split.") {
+                Button(onClick = {}) {
+                    Text("EN", modifier = Modifier.semantics { contentDescription = "Wikipedia language" })
+                }
+            }
+            RuleCard("P-05: no cd + non-interactive TextView — rule N/A", "accessibleName(node) returns '' for a non-interactive node with no cd → rule silently skips.") {
+                AndroidView(
+                    factory = { ctx ->
+                        android.widget.TextView(ctx).apply {
+                            text = "Static heading"
+                            setPadding(16, 12, 16, 12)
+                        }
+                    }
+                )
+            }
+        }
+        ScrollArrows(scrollState = scrollState)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun LabelAtFrontScreenPreview() {
+    QA_Accessibility_AppTheme { LabelAtFrontScreen() }
+}
+
+// ---------------------------------------------------------------------
+// KEYBOARD FOCUS — NonFocusableInteractiveElement (WCAG 2.1.1 A, Serious)
+// Clickable but not focusable, with no focusable+clickable ancestor or
+// descendant to delegate focus. Focusable-only (non-clickable) wrappers
+// do NOT count as delegation.
+// ---------------------------------------------------------------------
+@Composable
+fun KeyboardFocusScreen(modifier: Modifier = Modifier) {
+    val scrollState = rememberScrollState()
+    Column(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(scrollState).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Non-Focusable Interactive Element", style = MaterialTheme.typography.headlineSmall)
+            Text("WCAG 2.1.1 (A), Serious. Every clickable / long-clickable / checkable control must be reachable by keyboard focus. AAE IsApplicable = Displayed + Enabled + IsInteractive. Delegation only counts if the ancestor / descendant is BOTH Focusable AND IsInteractive — a focus-only wrapper does not save the child.\n\n" +
+                "Detection reality check: AOSP UIAutomator dump does NOT emit an importantForAccessibility attribute (verified against AOSP AccessibilityNodeInfoDumper source). Instead, the resolved isImportantForAccessibility() controls whether the node appears in the tree at all — for a clickable View that resolves to true even from AUTO. So the effective detection is 'node PRESENT in a11y tree + clickable=true + focusable=false'. We still set importantForAccessibility=YES explicitly on V-cases as a belt-and-braces to guarantee tree presence.\n\n" +
+                "Scanner-scope: Google ATF and Deque axe-mobile ship NO rule for this (verified against Google's AccessibilityCheckPreset source and Deque's AxeConf.java). BrowserStack ships it. So only BrowserStack-style scanners (including AAE) will flag these — silence from Accessibility Scanner is expected.",
+                style = MaterialTheme.typography.bodySmall)
+
+            // ---------- VIOLATIONS ----------
+            RuleCard(
+                "V-01: clickable TextView, isFocusable=false (Buy now)",
+                "Native TextView with setOnClickListener + isFocusable=false. Why: hardware-keyboard users use Tab / arrow keys to traverse the input-focus chain; a control that opts out of focus is invisible to that traversal — the button might as well not exist for them. Switch-access users hit the same wall."
+            ) {
+                NativeClickableView("Buy now", focusable = false, modifier = Modifier.fillMaxWidth())
+            }
+            RuleCard(
+                "V-02: second clickable-not-focusable target (Add to cart)",
+                "Same shape as V-01 with a different label. Why: this pattern usually creeps in via custom Views that copy click handling from a parent stub but forget to set focusable=true — one buggy helper multiplies across a whole app."
+            ) {
+                NativeClickableView("Add to cart", focusable = false, modifier = Modifier.fillMaxWidth())
+            }
+            RuleCard(
+                "V-03: focusable-only wrapper does NOT delegate",
+                "Outer FrameLayout is focusable=true but clickable=false — cannot activate the child. Rule fires on the inner clickable-not-focusable TextView. Why: focus-delegation requires an ancestor that is BOTH focusable AND clickable (a click on the ancestor must actually perform the child's action). A focus-only wrapper eats keyboard focus but does nothing when the user presses Enter."
+            ) {
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth(),
+                    factory = { ctx ->
+                        android.widget.FrameLayout(ctx).apply {
+                            isFocusable = true
+                            isClickable = false
+                            addView(
+                                android.widget.TextView(ctx).apply {
+                                    text = "Wrapped, still unreachable"
+                                    setPadding(32, 24, 32, 24)
+                                    setBackgroundColor(0xFFB3261E.toInt())
+                                    setTextColor(0xFFFFFFFF.toInt())
+                                    isClickable = true
+                                    isFocusable = false
+                                    importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_YES
+                                    setOnClickListener { }
+                                }
+                            )
+                        }
+                    }
+                )
+            }
+            RuleCard(
+                "V-04: CheckBox with isFocusable=false (Checkable path)",
+                "android.widget.CheckBox is Checkable=true; forced isFocusable=false. Why: IsInteractive() covers Clickable OR LongClickable OR Checkable — a toggle that responds to touch but not keyboard traps power-users on external keyboards. The rule fires because Checkable alone is enough interactivity."
+            ) {
+                AndroidView(
+                    factory = { ctx ->
+                        android.widget.CheckBox(ctx).apply {
+                            text = "Enable analytics"
+                            isFocusable = false
+                            importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_YES
+                        }
+                    }
+                )
+            }
+            RuleCard(
+                "V-05: LongClickable-only View with focusable=false",
+                "Native View with setOnLongClickListener (long-press only), isFocusable=false. Why: covers the LongClickable arm of IsInteractive. Real-world example: draggable list items whose primary interaction is long-press; if they aren't focusable, keyboard users can't trigger the drag menu."
+            ) {
+                AndroidView(
+                    factory = { ctx ->
+                        android.widget.TextView(ctx).apply {
+                            text = "Long-press to reorder"
+                            setPadding(32, 24, 32, 24)
+                            setBackgroundColor(0xFF6650A4.toInt())
+                            setTextColor(0xFFFFFFFF.toInt())
+                            isLongClickable = true
+                            isFocusable = false
+                            importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_YES
+                            setOnLongClickListener { true }
+                        }
+                    }
+                )
+            }
+            RuleCard(
+                "V-06 (scanner miss): Compose Modifier.pointerInput { detectTapGestures { } }",
+                "Box that handles taps via pointerInput / detectTapGestures instead of Modifier.clickable. Real 2.1.1 harm — touch works but keyboard / D-pad / switch access cannot reach it — BUT AAE will SILENTLY PASS: pointerInput adds no semantics, so the a11y dump shows clickable=false, and IsApplicable requires IsInteractive=true. Verified against Compose source: Modifier.clickable sets both clickable AND focusable via semantics; pointerInput sets neither. Detection here has to be behavioural (does the widget respond to touch?), not attribute-based."
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.error, MaterialTheme.shapes.medium)
+                        .pointerInput(Unit) {
+                            detectTapGestures(onTap = { /* handled via raw touch */ })
+                        }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Tap via raw pointerInput", color = MaterialTheme.colorScheme.onError)
+                }
+            }
+            RuleCard(
+                "V-07 (scanner miss): custom View overriding onTouchEvent() — no isClickable, no focusable",
+                "Custom android.view.View that consumes ACTION_UP directly in onTouchEvent() and never sets isClickable / isFocusable. Same shape as V-06 but at the View layer. AAE will SILENTLY PASS: the a11y dump shows clickable=false (verified against AOSP source — View.isClickable() must be true, and setOnClickListener / setClickable(true) is the only way). Detection here has to be behavioural (does the widget respond to touch?), not attribute-based."
+            ) {
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth(),
+                    factory = { ctx ->
+                        object : android.view.View(ctx) {
+                            init {
+                                setBackgroundColor(0xFFB3261E.toInt())
+                                minimumHeight = (48 * resources.displayMetrics.density).toInt()
+                            }
+                            override fun onTouchEvent(event: android.view.MotionEvent): Boolean {
+                                if (event.action == android.view.MotionEvent.ACTION_UP) {
+                                    performClick()
+                                }
+                                return true
+                            }
+                            override fun performClick(): Boolean {
+                                super.performClick()
+                                return true
+                            }
+                        }
+                    }
+                )
+            }
+            RuleCard(
+                "V-08: XML declarative variants (inflated from res/layout/keyboard_focus_xml.xml)",
+                "Three XML violations (clickable TextView with focusable=false, clickable LinearLayout with focusable=false, focusable-only FrameLayout wrapper) plus three XML passes (Button, clickable+focusable=true, focusable+clickable ancestor row). All entries in this XML fire (or pass) NonFocusableInteractiveElement — no related-trap items mixed in. Why: catches the same trap declared in layout XML — most legacy Android UIs live in XML, so declarative violations are common."
+            ) {
+                AndroidView(
+                    factory = { ctx -> android.view.View.inflate(ctx, R.layout.keyboard_focus_xml, null) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            // ---------- PASSES ----------
+            RuleCard("P-01: Compose Button (inherently focusable + clickable)", "Modifier.clickable inside Button sets both Focusable and Clickable — PASS.") {
+                Button(onClick = {}) { Text("Confirm") }
+            }
+            RuleCard("P-02: clickable + isFocusable=true", "Same native View as V-01 but with focus flipped on — keyboard can reach it → PASS.") {
+                NativeClickableView("Reachable action", focusable = true, modifier = Modifier.fillMaxWidth())
+            }
+            RuleCard("P-03: focusable+clickable ancestor delegates for child", "Outer LinearLayout is Clickable AND Focusable — inner clickable-not-focusable TextView passes via hasFocusableClickableAncestor.") {
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth(),
+                    factory = { ctx ->
+                        android.widget.LinearLayout(ctx).apply {
+                            orientation = android.widget.LinearLayout.HORIZONTAL
+                            isClickable = true
+                            isFocusable = true
+                            setOnClickListener { }
+                            setBackgroundColor(0xFF625B71.toInt())
+                            setPadding(24, 16, 24, 16)
+                            addView(
+                                android.widget.TextView(ctx).apply {
+                                    text = "Row content"
+                                    setTextColor(0xFFFFFFFF.toInt())
+                                    isClickable = true
+                                    isFocusable = false
+                                    setOnClickListener { }
+                                }
+                            )
+                        }
+                    }
+                )
+            }
+            RuleCard("P-04: descendant delegation — clickable container with focusable+clickable inner Button", "Outer clickable container is Focusable=false, but the inner Button is Focusable+Clickable → hasFocusableClickableDescendant returns true → PASS for the container.") {
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth(),
+                    factory = { ctx ->
+                        android.widget.LinearLayout(ctx).apply {
+                            orientation = android.widget.LinearLayout.HORIZONTAL
+                            isClickable = true
+                            isFocusable = false
+                            setOnClickListener { }
+                            setPadding(24, 16, 24, 16)
+                            addView(
+                                android.widget.Button(ctx).apply { text = "Nested action" }
+                            )
+                        }
+                    }
+                )
+            }
+            RuleCard("P-05: disabled interactive — rule N/A", "TextView with isClickable=true but isEnabled=false. IsApplicable requires Enabled=true → rule silently skips.") {
+                AndroidView(
+                    factory = { ctx ->
+                        android.widget.TextView(ctx).apply {
+                            text = "Disabled action"
+                            setPadding(32, 24, 32, 24)
+                            setBackgroundColor(0xFF888888.toInt())
+                            setTextColor(0xFFFFFFFF.toInt())
+                            isClickable = true
+                            isFocusable = false
+                            isEnabled = false
+                            setOnClickListener { }
+                        }
+                    }
+                )
+            }
+
+            // ---------- RELATED TRAPS (not this rule) ----------
+            Text(
+                "Related trap — NOT flagged by NonFocusableInteractiveElement",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                "The card below is a real keyboard-UX problem but sits OUTSIDE this rule's scope. NonFocusableInteractiveElement's IsApplicable check requires IsInteractive (Clickable / LongClickable / Checkable) — a non-interactive container that is merely focusable never triggers the rule. Some rulesets ship a separate 'UnnecessaryFocusable' rule for this; AAE does not.",
+                style = MaterialTheme.typography.bodySmall
+            )
+
+            RuleCard(
+                "Related trap: android:focusable=\"true\" on a non-interactive ViewGroup — phantom tab stop",
+                "Common TalkBack-grouping mistake: a ViewGroup is marked focusable=true so its children announce as one unit. That ALSO puts it in the keyboard-focus chain, so hardware-keyboard users hit a tab stop on a container that does nothing when Enter is pressed. From API 28+, use android:screenReaderFocusable=\"true\" instead — accessibility focus without keyboard focus. AAE stays silent on this pattern; catch it via a keyboard walk (Tab through the screen and see where focus lands with no action)."
+            ) {
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth(),
+                    factory = { ctx ->
+                        android.widget.LinearLayout(ctx).apply {
+                            orientation = android.widget.LinearLayout.VERTICAL
+                            isFocusable = true // trap: creates a keyboard tab stop on a non-interactive group
+                            isClickable = false
+                            setBackgroundColor(0xFFB3261E.toInt())
+                            setPadding(24, 16, 24, 16)
+                            addView(android.widget.TextView(ctx).apply {
+                                text = "Title of grouped content"
+                                setTextColor(0xFFFFFFFF.toInt())
+                                textSize = 14f
+                            })
+                            addView(android.widget.TextView(ctx).apply {
+                                text = "Body copy that a screen reader should announce together with the title above."
+                                setTextColor(0xFFFFFFFF.toInt())
+                                textSize = 12f
+                            })
+                        }
+                    }
+                )
+            }
+        }
+        ScrollArrows(scrollState = scrollState)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun KeyboardFocusScreenPreview() {
+    QA_Accessibility_AppTheme { KeyboardFocusScreen() }
+}
+
+// ---------------------------------------------------------------------
+// TEXT SPACING — TextSpacing (WCAG 1.4.12 AA, Minor)
+// MCAG SC 3.3.1 thresholds evaluated server-side from raw char geometry:
+//   line height   ≥ 0.9× font size
+//   word spacing  ≥ 0.16× font size
+//   paragraph gap ≥ 2× line spacing (between strictly-consecutive
+//                   multi-line siblings)
+// Requires MAE-captured char-tops / space-advances — plain Compose Text
+// often does not surface geometry, so violations use native TextViews.
+// ---------------------------------------------------------------------
+
+// TextSpacing-specific replacement for RuleCard. The default RuleCard uses
+// plain Compose Text for title + subtitle; those emit char-tops in modern
+// Compose and are exposed as android.widget.TextView in the a11y tree, so the
+// TextSpacing paragraph rule pairs them up and flags EVERY card's subtitle
+// (confirmed by API scan: paragraphSpacingRatio=0.50x on subtitle nodes).
+// clearAndSetSemantics drops the child Text's semantics entirely and installs
+// only a contentDescription — TalkBack still announces the description, but
+// the a11y node has no text/GetTextLayoutResult, so no char-tops are emitted,
+// IsApplicable returns false, and the paragraph rule cannot fire on it.
+// Scoped to TextSpacingScreen — other screens keep using the shared RuleCard.
+@Composable
+private fun TextSpacingRuleCard(
+    title: String,
+    subtitle: String,
+    content: @Composable () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.clearAndSetSemantics { contentDescription = title }
+            )
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.clearAndSetSemantics { contentDescription = subtitle }
+            )
+            content()
+        }
+    }
+}
+
+@Composable
+fun TextSpacingScreen(modifier: Modifier = Modifier) {
+    val scrollState = rememberScrollState()
+    Column(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(scrollState).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            val screenTitle = "Text Spacing"
+            val screenDescription = "WCAG 1.4.12 (AA). Two different threshold formulations exist in the wild — different scanners implement different ones:\n\n" +
+                "AAE (this codebase, per source code):\n" +
+                "  line ratio = pitch / fontSize ≥ 0.9\n" +
+                "  word ratio = spaceAdvance / fontSize ≥ 0.16\n" +
+                "  paragraph ratio = gap / LINE-PITCH ≥ 2.0   ← denominator is line pitch, not font\n" +
+                "  Text-length gate: MAE captures geometry only for text ≥ 20 chars trimmed.\n" +
+                "  Rationale in the AAE source: WCAG's 1.5× line floor would flag every default TextView.\n\n" +
+                "BrowserStack App Accessibility (per their public rule docs):\n" +
+                "  line ratio ≥ 1.5\n" +
+                "  word ratio ≥ 0.16\n" +
+                "  paragraph ratio = gap / FONT-SIZE ≥ 2.0   ← denominator is font size, not line pitch\n" +
+                "  Letter-spacing: checked but no numeric threshold published.\n" +
+                "  Text-length gate: not documented.\n\n" +
+                "Google ATF (Accessibility Scanner engine) and Deque axe-mobile ship NO text-spacing rule at all — running them alongside as a cross-check will produce silence, not agreement.\n\n" +
+                "V-06 (default 1.2× line spacing) is the discriminator: passes AAE, fails BrowserStack."
+            Text(
+                screenTitle,
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.clearAndSetSemantics { contentDescription = screenTitle }
+            )
+            Text(
+                screenDescription,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.clearAndSetSemantics { contentDescription = screenDescription }
+            )
+
+            // ---------- VIOLATIONS ----------
+            TextSpacingRuleCard(
+                "V-01: crushed line height (0.7× multiplier)",
+                "Native TextView, 16sp text, lineSpacingMultiplier=0.7f. Computed lineRatio ≈ 0.84 — below the 0.9× floor. Why: line-height below the floor makes ascenders and descenders bleed into adjacent lines; low-vision readers lose their place mid-line and readers with dyslexia can't track horizontally."
+            ) {
+                NativeSpacedText(
+                    text = "Reading dense text is exhausting for low-vision users when line height is squeezed below the WCAG floor, and the effect compounds when the paragraph is longer than a single wrapped line. This copy is intentionally long enough to force at least three rendered rows on any typical Android screen width so the scanner's line-pitch measurement has multiple charTops rows to work with.",
+                    sizeSp = 16f,
+                    lineSpacingMultiplier = 0.7f,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            TextSpacingRuleCard(
+                "V-02: negative letter spacing crushes word gaps (-0.15em)",
+                "Native TextView, 18sp text, letterSpacing=-0.15em. Computed wordRatio ≈ 0.10 — below the 0.16× floor. Why: the space glyph advance shrinks with tracking; when it drops below the floor, adjacent words merge visually — cognitive-disability users cannot parse word boundaries."
+            ) {
+                NativeSpacedText(
+                    text = "Word spacing collapses when letters overlap because negative tracking pushes the interior space glyph advance below the sixteen-percent floor, and the scanner measures interior spaces only, so this copy is deliberately long with many interior spaces to yield a stable median.",
+                    sizeSp = 18f,
+                    lineSpacingMultiplier = 1.2f,
+                    letterSpacingEm = -0.15f,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            TextSpacingRuleCard(
+                "V-03: paragraphs jammed together (paragraph gap = 0)",
+                "Two multi-line TextViews as strictly-consecutive siblings under one LinearLayout with zero spacer. Paragraph ratio = 0, far below the 2.0× line-pitch floor. Rule anchors on the LOWER paragraph. Why: paragraph gaps are the primary visual scan-cue for readers with cognitive disabilities; when gap < 2× line pitch, sighted users can't tell where one thought ends and the next begins."
+            ) {
+                NativeParagraphPair(
+                    firstText = "First paragraph spans multiple lines so the scanner can compute a line pitch to compare against for the paragraph rule.",
+                    secondText = "Second paragraph starts immediately, with no visual separation from the first one at all in the layout.",
+                    sizeSp = 16f,
+                    lineSpacingMultiplier = 1.0f,
+                    spacerHeightDp = 0,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            TextSpacingRuleCard(
+                "V-04: line + word failure on one node (combined evidence)",
+                "Same TextView with lineSpacingMultiplier=0.7f AND letterSpacing=-0.15em. Why: rules emit multiple evidence flags per node — minimumLineSpacing and minimumWordSpacing appear together in wrongProps with their measured ratios; the dashboard shows both failing sub-checks so triage can prioritise the worst offender."
+            ) {
+                NativeSpacedText(
+                    text = "Everything is too tight here because the lines are crushed together and the letters overlap each other constantly, which trips both the line-height sub-check and the word-spacing sub-check simultaneously. Enough text is provided to guarantee multiple wrapped lines and enough interior spaces for the scanner to compute both medians reliably.",
+                    sizeSp = 16f,
+                    lineSpacingMultiplier = 0.7f,
+                    letterSpacingEm = -0.15f,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            TextSpacingRuleCard(
+                "V-05: extreme -0.20em tracking on 20sp text",
+                "Aggressive negative letter spacing pushes word ratio to ~0.05 — well past the floor. Why: shows the ratio scales linearly with tracking; harsher tracking = harsher fail, and the evidence prop 'wordSpacingRatio' surfaces the exact measured value."
+            ) {
+                NativeSpacedText(
+                    text = "Extreme letter spacing collapses adjacent words into one blur when tracking is this aggressive, and the space glyph advance shrinks proportionally so the measured word-spacing ratio falls well below the sixteen-percent floor for readers who need spacing to parse boundaries.",
+                    sizeSp = 20f,
+                    lineSpacingMultiplier = 1.2f,
+                    letterSpacingEm = -0.20f,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            TextSpacingRuleCard(
+                "V-06 (threshold discriminator): default TextView line spacing (~1.2×)",
+                "Native TextView with no line-spacing override — pitch ≈ 1.15–1.2× font size. Why include this: it sits BETWEEN the two thresholds — > 0.9 (PASSES AAE MCAG) and < 1.5 (FAILS BrowserStack WCAG). Use this card to identify which ruleset your scanner actually implements: if the scan flags this, you're on BrowserStack; if it stays silent while V-01 fires, you're on AAE MCAG."
+            ) {
+                NativeSpacedText(
+                    text = "Default line spacing — this text uses the platform default line pitch to discriminate between the AAE and BrowserStack thresholds.",
+                    sizeSp = 16f,
+                    lineSpacingMultiplier = 1.0f,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            TextSpacingRuleCard(
+                "V-07: XML declarative variants (inflated from res/layout/text_spacing_xml.xml)",
+                "Three XML violations (android:lineSpacingMultiplier=0.6, android:letterSpacing=-0.15, jammed sibling TextViews) plus XML passes (comfortable line height, positive letter spacing, paragraphs separated by an android.widget.Space). Why: developers set these via layout XML more often than via code — the rule catches declarative violations the same way, using the SAME captured char-geometry pipeline."
+            ) {
+                AndroidView(
+                    factory = { ctx -> android.view.View.inflate(ctx, R.layout.text_spacing_xml, null) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            // ------- CLASSIC WCAG 1.4.12 "content-loss" patterns -------
+            // These are the WEB-original interpretation: with the user-agent bumping
+            // spacing to line 1.5x / para 2x / letter 0.12x / word 0.16x, no content
+            // or functionality is lost. Mobile-adapted: your layout must tolerate
+            // increased spacing without clipping, overlap, or truncation.
+            //
+            // The AAE `TextSpacing` rule measures BASELINE spacing (MCAG floors),
+            // so these next three MAY NOT trigger it — they're calibration cards
+            // for manual / visual QA and for scanners that implement the classic
+            // WCAG interpretation.
+            val classicHeader = "Classic WCAG 1.4.12 (content-loss) patterns — visual/manual test"
+            val classicDescription = "The AAE scanner measures baseline spacing (MCAG 3.3.1). The cases below demonstrate the ORIGINAL 1.4.12 interpretation — content lost when spacing grows. They may not trigger the AAE rule; screenshot before/after bumping spacing and diff visually."
+            Text(
+                classicHeader,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.clearAndSetSemantics { contentDescription = classicHeader }
+            )
+            Text(
+                classicDescription,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.clearAndSetSemantics { contentDescription = classicDescription }
+            )
+
+            TextSpacingRuleCard(
+                "V-08 (classic): hardcoded 24dp height clips descenders / second line",
+                "TextView forced to layout_height=24dp holding a two-line string. Why: fixed heights are the #1 shape of 1.4.12 failure — bump lineHeight to 1.5x and the second line is cut off entirely; low-vision users lose content silently. Use wrap_content plus minHeight instead."
+            ) {
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth(),
+                    factory = { ctx ->
+                        android.widget.LinearLayout(ctx).apply {
+                            orientation = android.widget.LinearLayout.VERTICAL
+                            layoutParams = android.view.ViewGroup.LayoutParams(
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                            )
+                            importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_YES
+                            addView(android.widget.Space(ctx).apply {
+                                layoutParams = android.widget.LinearLayout.LayoutParams(
+                                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                                    1
+                                )
+                            })
+                            addView(
+                                android.widget.TextView(ctx).apply {
+                                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                                        (24 * resources.displayMetrics.density).toInt()
+                                    )
+                                    setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16f)
+                                    setLineSpacing(0f, 1.5f)
+                                    setBackgroundColor(0xFFB3261E.toInt())
+                                    setTextColor(0xFFFFFFFF.toInt())
+                                    text = "This body copy is going to be clipped because the container height is smaller than the rendered text needs."
+                                }
+                            )
+                        }
+                    }
+                )
+            }
+            TextSpacingRuleCard(
+                "V-09 (classic): maxLines=2 + ellipsize=end — the ellipsis IS content loss",
+                "TextView with android:maxLines=2 android:ellipsize=end holding a longer paragraph. Why: ellipsis-truncated text hides information from ALL users, and hides more with any spacing increase. WCAG treats truncation as content loss; if the ellipsis appears, the criterion has already failed."
+            ) {
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth(),
+                    factory = { ctx ->
+                        android.widget.LinearLayout(ctx).apply {
+                            orientation = android.widget.LinearLayout.VERTICAL
+                            layoutParams = android.view.ViewGroup.LayoutParams(
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                            )
+                            importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_YES
+                            addView(android.widget.Space(ctx).apply {
+                                layoutParams = android.widget.LinearLayout.LayoutParams(
+                                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                                    1
+                                )
+                            })
+                            addView(
+                                android.widget.TextView(ctx).apply {
+                                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                                    )
+                                    setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16f)
+                                    maxLines = 2
+                                    ellipsize = android.text.TextUtils.TruncateAt.END
+                                    setBackgroundColor(0xFF6650A4.toInt())
+                                    setTextColor(0xFFFFFFFF.toInt())
+                                    setPadding(24, 16, 24, 16)
+                                    text = "Screen readers announce only what is present; ellipsized text is content the user cannot reach with any assistive technology, so any ellipsis in body copy is a 1.4.12 failure by definition."
+                                }
+                            )
+                        }
+                    }
+                )
+            }
+            TextSpacingRuleCard(
+                "V-10 (classic): fixed-width Button truncates its own label",
+                "Button pinned to layout_width=80dp with a long label. Why: fixed widths that can't expand to fit the label truncate at any translation, any font-scale change, and any spacing increase — a triple-failure surface. Use wrap_content or minWidth, and let the button grow."
+            ) {
+                AndroidView(
+                    factory = { ctx ->
+                        android.widget.Button(ctx).apply {
+                            layoutParams = android.widget.LinearLayout.LayoutParams(
+                                (80 * resources.displayMetrics.density).toInt(),
+                                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                            )
+                            text = "Confirm cancellation"
+                            isSingleLine = true
+                            ellipsize = android.text.TextUtils.TruncateAt.END
+                        }
+                    }
+                )
+            }
+            TextSpacingRuleCard(
+                "V-11 (classic): fixed-height Card + long content — overlap on spacing bump",
+                "Fixed-height 64dp container wrapping stacked lines of copy. Why: fixed-height containers overflow when line/paragraph spacing grows; subsequent siblings overlap, and the scroll position no longer reaches the truncated content."
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp)
+                        .background(MaterialTheme.colorScheme.errorContainer, MaterialTheme.shapes.medium)
+                        .padding(8.dp)
+                ) {
+                    Column {
+                        Text(
+                            "Line one of a critical notification message.",
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Text(
+                            "Line two — likely to overflow the fixed-height container.",
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Text(
+                            "Line three — definitely clipped, user cannot scroll to it.",
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+            }
+
+            // ---------- PASSES ----------
+            TextSpacingRuleCard("P-01: comfortable line height (1.4× multiplier)", "16sp text, lineSpacingMultiplier=1.4 → computed lineRatio ≈ 1.68 — well above AAE's 0.9× floor. Wrapper LinearLayout is explicitly important-for-accessibility, so paragraph sub-check finds no preceding sibling → ratioAbsent → N/A.") {
+                NativeSpacedText(
+                    text = "Comfortable line height gives dense body text room to breathe for low-vision readers.",
+                    sizeSp = 16f,
+                    lineSpacingMultiplier = 1.4f,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            TextSpacingRuleCard("P-02: positive letter spacing (+0.05em)", "18sp text, letterSpacing=+0.05em → space glyph advance ~0.30× font → passes 0.16× word floor. Line ratio ≈ 1.56 passes 0.9× floor.") {
+                NativeSpacedText(
+                    text = "Loose letter spacing preserves clear word boundaries for readers who need them.",
+                    sizeSp = 18f,
+                    lineSpacingMultiplier = 1.3f,
+                    letterSpacingEm = 0.05f,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            TextSpacingRuleCard("P-03: paragraphs separated by android.widget.Space (64dp)", "Two paragraphs under one LinearLayout with a 64dp Space child. Space is an empty-text sibling → paragraph sub-check returns ratioAbsent → N/A. Line spacing 1.3× carries the verdict.") {
+                NativeParagraphPair(
+                    firstText = "First paragraph, long enough to occupy two full rendered lines for the scanner to compute a pitch.",
+                    secondText = "Second paragraph, separated cleanly from the previous one by an empty-text Space sibling in the tree.",
+                    sizeSp = 16f,
+                    lineSpacingMultiplier = 1.3f,
+                    spacerHeightDp = 64,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            TextSpacingRuleCard("P-04: short text (<20 chars) — rule N/A via length gate", "11-char text 'Short label' with deliberately crushed mult=0.5. AAE MAE requires text.trim() ≥ 20 chars for geometry capture — below the gate, no charTops emitted → IsApplicable returns false → rule silently skips despite the crushed spacing.") {
+                NativeSpacedText(
+                    text = "Short label",
+                    sizeSp = 16f,
+                    lineSpacingMultiplier = 0.5f,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            TextSpacingRuleCard("P-05: single-line long text — line sub-check N/A, word passes", "Short text 'Reads on one line.' — likely single-line. CharTops has 1 row → lineHeightRatio returns ratioAbsent → line sub-check N/A. Word sub-check passes at default space advance.") {
+                NativeSpacedText(
+                    text = "Reads on one line.",
+                    sizeSp = 16f,
+                    lineSpacingMultiplier = 1.2f,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+        ScrollArrows(scrollState = scrollState)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun TextSpacingScreenPreview() {
+    QA_Accessibility_AppTheme { TextSpacingScreen() }
 }
