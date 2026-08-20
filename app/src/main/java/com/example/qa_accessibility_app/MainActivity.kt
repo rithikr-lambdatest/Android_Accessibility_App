@@ -111,18 +111,52 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Deep link used by the SR XML activities: open straight onto a Compose
+        // destination, and finish back to the caller instead of landing on home.
+        val initialDestination = intent.getStringExtra(EXTRA_DESTINATION)
+            ?.let { name -> AppDestinations.entries.find { it.name == name } }
         setContent {
             QA_Accessibility_AppTheme {
-                QA_Accessibility_AppApp()
+                QA_Accessibility_AppApp(
+                    initialDestination = initialDestination,
+                    onExitToCaller = if (initialDestination != null) ({ finish() }) else null
+                )
             }
         }
+    }
+
+    companion object {
+        const val EXTRA_DESTINATION = "destination"
     }
 }
 
 @PreviewScreenSizes
 @Composable
-fun QA_Accessibility_AppApp() {
-    var currentDestination by rememberSaveable { mutableStateOf<AppDestinations?>(null) }
+fun QA_Accessibility_AppApp(
+    initialDestination: AppDestinations? = null,
+    onExitToCaller: (() -> Unit)? = null,
+) {
+    var currentDestination by rememberSaveable { mutableStateOf(initialDestination) }
+    // One level of history, so that going back from a screen-reader sub-fixture returns to the
+    // rules page that launched it rather than jumping straight home. The sub-fixtures are the only
+    // screens reachable from another screen, so a single slot is enough for a real back stack.
+    var previousDestination by rememberSaveable { mutableStateOf<AppDestinations?>(null) }
+
+    fun navigateTo(destination: AppDestinations) {
+        previousDestination = currentDestination
+        currentDestination = destination
+    }
+
+    fun navigateBack() {
+        if (previousDestination == null && currentDestination != null && onExitToCaller != null) {
+            // Launched by an SR XML activity directly onto a destination: backing out of the
+            // root returns to that activity rather than to this instance's home grid.
+            onExitToCaller()
+            return
+        }
+        currentDestination = previousDestination
+        previousDestination = null
+    }
     // Retains each destination's saveable state (incl. scroll position) so
     // navigating away and back restores where the user was, not the top.
     val saveableStateHolder = rememberSaveableStateHolder()
@@ -187,14 +221,24 @@ fun QA_Accessibility_AppApp() {
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                AppDestinations.entries.chunked(2).forEach { rowItems ->
+                AppDestinations.entries.filter { it.showOnHome }.chunked(2).forEach { rowItems ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         rowItems.forEach { destination ->
+                            val gridContext = LocalContext.current
                             Button(
-                                onClick = { currentDestination = destination },
+                                onClick = {
+                                    if (destination == AppDestinations.SCREEN_READER_XML_RULES) {
+                                        // Standalone View-based activity — see ScreenReaderXmlActivities.kt
+                                        gridContext.startActivity(
+                                            Intent(gridContext, ScreenReaderXmlRulesActivity::class.java)
+                                        )
+                                    } else {
+                                        navigateTo(destination)
+                                    }
+                                },
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text(text = destination.label)
@@ -212,7 +256,7 @@ fun QA_Accessibility_AppApp() {
             }
         } else {
             BackHandler {
-                currentDestination = null
+                navigateBack()
             }
             Column(
                 modifier = Modifier
@@ -220,7 +264,7 @@ fun QA_Accessibility_AppApp() {
                     .fillMaxSize()
             ) {
                 IconButton(
-                    onClick = { currentDestination = null },
+                    onClick = { navigateBack() },
                     modifier = Modifier.padding(start = 4.dp, top = 4.dp)
                 ) {
                     Icon(
@@ -256,6 +300,14 @@ fun QA_Accessibility_AppApp() {
                     AppDestinations.MINIMUM_TEXT_SIZE -> MinimumTextSizeScreen()
                     AppDestinations.INVALID_RANGE_VALUES -> InvalidRangeValuesScreen()
                     AppDestinations.UNIQUE_OPTION_NAMES -> UniqueOptionNamesScreen()
+                    AppDestinations.SCREEN_READER_COMPOSE_RULES ->
+                        ScreenReaderComposeRulesScreen(onNavigate = { navigateTo(it) })
+                    // XML pages are standalone activities now; the grid launches them directly.
+                    AppDestinations.SCREEN_READER_XML_RULES -> {}
+                    AppDestinations.SCREEN_READER_LINEAR_COMPOSE -> ScreenReaderLinearNavComposeScreen()
+                    AppDestinations.SCREEN_READER_LINEAR_XML -> {}
+                    AppDestinations.SCREEN_READER_PHASH_SIMILAR -> ScreenReaderPHashSimilarScreen()
+                    AppDestinations.SCREEN_READER_PHASH_ANIMATED -> ScreenReaderPHashAnimatedScreen()
                     null -> {}
                 }
                 }
@@ -267,6 +319,9 @@ fun QA_Accessibility_AppApp() {
 enum class AppDestinations(
     val label: String,
     val icon: ImageVector,
+    // Screen-reader sub-fixtures are reached from the footer of the SR rules pages, mirroring the
+    // iOS app, so they are kept off the home grid.
+    val showOnHome: Boolean = true,
 ) {
     ACCESSIBLE_IMAGES("Accessible Images", Icons.Default.Home),
     INTERACTIVE_ELEMENT_A11Y("Interactive a11y label", Icons.Default.Home),
@@ -292,6 +347,12 @@ enum class AppDestinations(
     MINIMUM_TEXT_SIZE("Minimum Text Size", Icons.Default.Build),
     INVALID_RANGE_VALUES("Invalid Range Values", Icons.Default.Build),
     UNIQUE_OPTION_NAMES("Unique Option Names", Icons.Default.Build),
+    SCREEN_READER_COMPOSE_RULES("SR Rules (Compose)", Icons.Default.Search),
+    SCREEN_READER_XML_RULES("SR Rules (XML)", Icons.Default.Search),
+    SCREEN_READER_LINEAR_COMPOSE("SR Linear Nav (Compose)", Icons.Default.Search, showOnHome = false),
+    SCREEN_READER_LINEAR_XML("SR Linear Nav (XML)", Icons.Default.Search, showOnHome = false),
+    SCREEN_READER_PHASH_SIMILAR("SR pHash Similar", Icons.Default.Search, showOnHome = false),
+    SCREEN_READER_PHASH_ANIMATED("SR pHash Animated", Icons.Default.Search, showOnHome = false),
 }
 
 @Composable
