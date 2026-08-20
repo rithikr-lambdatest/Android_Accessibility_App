@@ -43,6 +43,19 @@
             android:label="Orientation Lock (No Sensor)"
             android:screenOrientation="nosensor"
             android:theme="@style/Theme.QA_Accessibility_App" />
+        <!-- TE-24440: SR XML fixtures as standalone View-based activities (see
+             ScreenReaderXmlActivities.kt for the RCA — XML inside Compose AndroidView
+             was invisible to the MAE tree walker). -->
+        <activity
+            android:name=".ScreenReaderXmlRulesActivity"
+            android:exported="false"
+            android:label="SR Rules (XML)"
+            android:theme="@style/Theme.QA_Accessibility_App" />
+        <activity
+            android:name=".ScreenReaderLinearNavXmlActivity"
+            android:exported="false"
+            android:label="SR Linear Nav (XML)"
+            android:theme="@style/Theme.QA_Accessibility_App" />
         <!-- Pass case: fullSensor rotates with the device (not in the rule's FAIL set). -->
         <activity
             android:name=".RotatableActivity"

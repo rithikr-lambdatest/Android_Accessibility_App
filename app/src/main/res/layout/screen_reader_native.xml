@@ -1,0 +1,883 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TE-24440 — Screen Reader rules, XML / android.widget.* page.
+
+  Native twin of the Compose rules page, laid out the same way: a heading per rule, then one card
+  per test element stating the case ID and the expected verdict. Every element here is a REAL
+  android.widget.* view with a real android:id, so resource-id is always populated.
+
+  All headings, captions and separators carry importantForAccessibility="no" and stay OUT of the
+  accessibility tree. On the iOS run the equivalent captions were themselves reported as violations
+  (a note reading: Label contains "Selected" fired the duplicate-state rule), which buried the real
+  findings. Only the elements under test are announced, so every element in the report should map
+  to a case ID in TE-24440-Android-ScreenReader-QA-TestPlan.md.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:fitsSystemWindows="true"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+  <ScrollView
+    android:id="@+id/sr_xml_scroll_root"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:layout_weight="1">
+
+  <LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Screen Reader — XML page"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:importantForAccessibility="no"
+        android:layout_marginBottom="4dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="TE-24440. Every element is a real android.widget.* view. Same 7 rules as the Compose page — run both and diff the reports element for element."
+        android:textSize="12sp"
+        android:textColor="#555555"
+        android:importantForAccessibility="no"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="R1 — Interactive Focus Order (2.4.3, critical)"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#C62828"
+        android:importantForAccessibility="no"
+        android:layout_marginTop="8dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Clickable elements with NO accessible name. One card per widget class, so the scan shows which classes R1 actually catches. If only EditText fires, the role is leaking into spokenOutput exactly as the trait does on iOS."
+        android:textSize="12sp"
+        android:textColor="#555555"
+        android:importantForAccessibility="no"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R1 V-03: Button, empty text"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r1_v03_native_button — real android.widget.Button, no name. Expect FAIL."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:textAllCaps="false"
+            android:id="@+id/sr_r1_v03_native_button"
+            android:layout_width="120dp"
+            android:layout_height="48dp"
+            android:text="" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R1 V-04: ImageButton, no contentDescription"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r1_v04_native_imagebutton — real android.widget.ImageButton. Expect FAIL."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <ImageButton
+            android:id="@+id/sr_r1_v04_native_imagebutton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_search" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R1 V-05: EditText, no hint or label"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r1_v05_native_edittext — on iOS the text field was the ONLY class that could fire this rule. Expect FAIL."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/sr_r1_v05_native_edittext"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="text" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R1 V-06: Switch, empty text"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r1_v06_native_switch — real android.widget.Switch. Expect FAIL."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <Switch
+            android:id="@+id/sr_r1_v06_native_switch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R1 V-07: clickable View, no label"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r1_v07_native_clickable_view — plain android.view.View. RFC 10 known limitation: View sits in containerClasses and is only caught by the interactive-trait check. Expect FAIL."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <View
+            android:id="@+id/sr_r1_v07_native_clickable_view"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="#90A4AE"
+            android:clickable="true"
+            android:focusable="true"
+            android:importantForAccessibility="yes" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R1 P-03: Button WITH text (pass)"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r1_p03_native_button_labeled — same widget, now named. Negative control. Expect PASS."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:textAllCaps="false"
+            android:id="@+id/sr_r1_p03_native_button_labeled"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="Add to cart" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="R2 — Non-Interactive Focus Order (2.4.3, serious)"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#C62828"
+        android:importantForAccessibility="no"
+        android:layout_marginTop="8dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Non-interactive element reachable by TalkBack that announces nothing. The iOS equivalent never fired once across 19 screens, because StaticText and Image both carry a trait. Watch whether the Android role behaves the same."
+        android:textSize="12sp"
+        android:textColor="#555555"
+        android:importantForAccessibility="no"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R2 V-04: ImageView, no contentDescription"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r2_v04_native_image_nodesc — forced into the tree, announces nothing. Expect FAIL."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <ImageView
+            android:id="@+id/sr_r2_v04_native_image_nodesc"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:src="@drawable/nike"
+            android:importantForAccessibility="yes" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R2 V-05: TextView with EMPTY text"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r2_v05_native_empty_textview — mirrors the empty-Text construction that fires the equivalent rule on iOS. Expect FAIL."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/sr_r2_v05_native_empty_textview"
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:text=""
+            android:background="#CFD8DC"
+            android:importantForAccessibility="yes" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R2 P-02: TextView that announces normally (pass)"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r2_p02_native_textview_labeled — ordinary announced text. Expect PASS."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/sr_r2_p02_native_textview_labeled"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Section divider" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="R3 — Meaningless Spoken Output (1.1.1, serious)"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#C62828"
+        android:importantForAccessibility="no"
+        android:layout_marginTop="8dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="The accessible name is a generic word (button, view, image, icon, label, container)."
+        android:textSize="12sp"
+        android:textColor="#555555"
+        android:importantForAccessibility="no"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R3 V-03: label is the word &quot;View&quot;"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r3_v03_native_generic_view — generic word as the whole name. Expect FAIL."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:textAllCaps="false"
+            android:id="@+id/sr_r3_v03_native_generic_view"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="View" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R3 V-04: contentDescription is &quot;icon&quot;"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r3_v04_native_generic_icon — generic word. Expect FAIL."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <ImageView
+            android:id="@+id/sr_r3_v04_native_generic_icon"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_info_details"
+            android:contentDescription="icon" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="R4 — Image Missing Spoken Output (1.1.1, serious)"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#C62828"
+        android:importantForAccessibility="no"
+        android:layout_marginTop="8dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Image elements with an empty or generic name (image, icon, picture, photo, img). Overlaps R2 by design — record WHICH rule claims each element."
+        android:textSize="12sp"
+        android:textColor="#555555"
+        android:importantForAccessibility="no"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R4 V-03: image described as &quot;image&quot;"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r4_v03_native_generic_image — generic image word. Expect FAIL."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <ImageView
+            android:id="@+id/sr_r4_v03_native_generic_image"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:src="@drawable/pepsi"
+            android:contentDescription="image" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R4 P-02: properly described image (pass)"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r4_p02_native_described — &quot;Chanel logo&quot; is meaningful. Expect PASS."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <ImageView
+            android:id="@+id/sr_r4_p02_native_described"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:src="@drawable/chanel"
+            android:contentDescription="Chanel logo" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="R5 — Duplicate State Info (4.1.2, moderate)"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#C62828"
+        android:importantForAccessibility="no"
+        android:layout_marginTop="8dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="The label bakes in state TalkBack already announces (selected / checked / disabled; on / off only on toggles)."
+        android:textSize="12sp"
+        android:textColor="#555555"
+        android:importantForAccessibility="no"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R5 V-06: Switch labelled &quot;WiFi on&quot;"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r5_v06_native_switch_on — &quot;on&quot; on a real switch. Expect FAIL."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <Switch
+            android:id="@+id/sr_r5_v06_native_switch_on"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="WiFi on"
+            android:checked="true" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R5 V-07: CheckBox labelled &quot;Task checked&quot;"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r5_v07_native_checkbox_checked — &quot;checked&quot; in the label. Expect FAIL."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <CheckBox
+            android:id="@+id/sr_r5_v07_native_checkbox_checked"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Task checked"
+            android:checked="true" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="R6 — Duplicate Type Info (4.1.2, moderate)"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#C62828"
+        android:importantForAccessibility="no"
+        android:layout_marginTop="8dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="The label repeats the element type TalkBack already appends (button, link, switch, checkbox)."
+        android:textSize="12sp"
+        android:textColor="#555555"
+        android:importantForAccessibility="no"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R6 V-05: Button labelled &quot;Submit Button&quot;"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r6_v05_native_button_word — type word in the label. Expect FAIL."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:textAllCaps="false"
+            android:id="@+id/sr_r6_v05_native_button_word"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="Submit Button" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R6 V-06: Switch labelled &quot;WiFi Switch&quot;"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r6_v06_native_switch_word — type word &quot;switch&quot;. Expect FAIL."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <Switch
+            android:id="@+id/sr_r6_v06_native_switch_word"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="WiFi Switch" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="R7 — Visible Label Mismatch (2.5.3, serious)"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#C62828"
+        android:importantForAccessibility="no"
+        android:layout_marginTop="8dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Visible text and spoken output disagree. Android reads visible text from node.getText(), NOT OCR — so unlike iOS this should be exact, and any miss is a real logic bug."
+        android:textSize="12sp"
+        android:textColor="#555555"
+        android:importantForAccessibility="no"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R7 V-03: reads &quot;Buy Now&quot;, speaks otherwise"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r7_v03_native_mismatch — visible text not contained in the spoken name. Expect FAIL."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:textAllCaps="false"
+            android:id="@+id/sr_r7_v03_native_mismatch"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="Buy Now"
+            android:contentDescription="Complete purchase immediately" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F2F2F7"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="R7 P-03: reads &quot;Send&quot;, speaks &quot;Send message&quot; (pass)"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="id sr_r7_p03_native_contains — visible text IS contained in the spoken name, must not fire. Expect PASS."
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:importantForAccessibility="no"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:textAllCaps="false"
+            android:id="@+id/sr_r7_p03_native_contains"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="Send"
+            android:contentDescription="Send message" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#BDBDBD"
+        android:importantForAccessibility="no"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Other screen-reader fixtures"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:importantForAccessibility="no"
+        android:layout_marginBottom="8dp" />
+
+    <!-- Native Buttons, not Compose, so this page stays 100% android.widget.* and its report is
+         purely native. They ARE left in the accessibility tree so a manual TalkBack walk can reach
+         the other fixtures; their names are deliberately clean and must not trigger any rule. -->
+    <Button
+        android:textAllCaps="false"
+        android:id="@+id/sr_nav_linear_xml"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Open Linear Navigation (XML)"
+        android:layout_marginBottom="8dp" />
+
+    <Button
+        android:textAllCaps="false"
+        android:id="@+id/sr_nav_phash_similar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Open pHash Similar Screens"
+        android:layout_marginBottom="8dp" />
+
+    <Button
+        android:textAllCaps="false"
+        android:id="@+id/sr_nav_phash_animated"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Open pHash Animated Screen"
+        android:layout_marginBottom="24dp" />
+
+  </LinearLayout>
+  </ScrollView>
+
+  <!-- Native scroll arrows — same contentDescriptions as the Compose FABs so the test
+       scripts' locators work unchanged, and each click is an auto-report trigger. -->
+  <LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="end|center_vertical"
+    android:padding="8dp">
+
+    <ImageButton
+        android:id="@+id/sr_xml_arrow_up"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:src="@android:drawable/arrow_up_float"
+        android:contentDescription="Scroll up"
+        android:layout_marginEnd="16dp" />
+
+    <ImageButton
+        android:id="@+id/sr_xml_arrow_down"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:src="@android:drawable/arrow_down_float"
+        android:contentDescription="Scroll down" />
+  </LinearLayout>
+
+</LinearLayout>
